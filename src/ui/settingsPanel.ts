@@ -1,11 +1,12 @@
 import { actionUsing, isReserved, keyLabel, keyOf, mainKey, REBINDABLE_ACTIONS, setCustomBindings, type RebindableAction } from '../core/controls';
 import { isTouchMode } from '../core/pointerMode';
-import { DAY_LENGTHS, TEXT_SIZES, type Resolution, type Settings, type TextSize } from '../core/settings';
+import { QUALITY_SETTINGS, type QualityLevel, type QualitySetting } from '../core/quality';
+import { DAY_LENGTHS, TEXT_SIZES, type Settings, type TextSize } from '../core/settings';
 import { createElement } from './hud';
 import { TEXTS } from './texts';
 
 type VolumeKey = 'masterVolume' | 'sfxVolume' | 'ambienceVolume' | 'musicVolume';
-type ToggleKey = 'shadows' | 'showHints' | 'showBiteAlert' | 'reduceMotion' | 'easyHook' | 'bigBobber';
+type ToggleKey = 'showFps' | 'showHints' | 'showBiteAlert' | 'reduceMotion' | 'easyHook' | 'bigBobber';
 
 /** Temps pour confirmer l'effacement de la partie (ms). */
 const RESET_CONFIRM_DELAY = 4000;
@@ -17,10 +18,12 @@ export interface SettingsPanelActions {
   /** Revoir le tutoriel (absent sur l'écran titre). */
   readonly onReplayTutorial?: () => void;
   readonly onBack: () => void;
+  /** Niveau de qualité graphique en ce moment (utile en mode automatique). */
+  readonly currentQuality?: () => QualityLevel;
 }
 
 /**
- * Panneau Réglages : son (4 volumes), affichage (ombres, définition, aides),
+ * Panneau Réglages : son (4 volumes), affichage (qualité graphique, images par seconde, aides),
  * confort (texte, animations, ferrage, bouchon, joystick), clavier (touches
  * reconfigurables), jeu (durée d'une journée) et effacement de la partie (en
  * deux clics). Chaque changement s'applique tout de suite.
@@ -40,7 +43,7 @@ export class SettingsPanel {
     this.element.append(
       createElement('menu-title', t.title),
       this.section(t.sound, this.volume('masterVolume'), this.volume('sfxVolume'), this.volume('ambienceVolume'), this.volume('musicVolume')),
-      this.section(t.display, this.toggle('shadows'), this.resolutionChoice(), this.toggle('showHints'), this.toggle('showBiteAlert')),
+      this.section(t.display, ...this.qualityChoice(), this.toggle('showFps'), this.toggle('showHints'), this.toggle('showBiteAlert')),
       this.section(
         t.comfort,
         this.textSizeChoice(),
@@ -91,16 +94,23 @@ export class SettingsPanel {
     return settingsRow(TEXTS.settings[key], input);
   }
 
-  private resolutionChoice(): HTMLElement {
-    const options: readonly (readonly [Resolution, string])[] = [
-      ['auto', TEXTS.settings.resolutionAuto],
-      ['eco', TEXTS.settings.resolutionEco],
-    ];
-    const choice = segmented(options, this.settings.resolution, (value) => {
-      this.settings.resolution = value;
+  /** Qualité graphique (Auto / Basse / Moyenne / Haute), et en mode automatique le niveau du moment. */
+  private qualityChoice(): HTMLElement[] {
+    const t = TEXTS.settings;
+    const note = createElement('settings-note');
+    const refreshNote = (): void => {
+      const level = this.actions.currentQuality?.();
+      note.hidden = this.settings.quality !== 'auto' || !level;
+      if (level) note.textContent = t.qualityAutoNow(t.qualities[level]);
+    };
+    const options = QUALITY_SETTINGS.map((value) => [value, t.qualities[value]] as const);
+    const choice = segmented<QualitySetting>(options, this.settings.quality, (value) => {
+      this.settings.quality = value;
       this.commit();
+      refreshNote();
     });
-    return settingsRow(TEXTS.settings.resolution, choice);
+    refreshNote();
+    return [settingsRow(t.quality, choice), note];
   }
 
   private textSizeChoice(): HTMLElement {

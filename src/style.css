@@ -126,6 +126,20 @@ select {
   opacity: 0.85;
 }
 
+/* Compteur d'images par seconde (Réglages › Affichage) */
+.hud-fps {
+  position: absolute;
+  top: calc(16px + var(--safe-top));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: calc(12px * var(--text-scale, 1));
+  font-variant-numeric: tabular-nums;
+  opacity: 0.85;
+}
+
 /* Messages éphémères, empilés au centre */
 .hud-toasts {
   position: absolute;

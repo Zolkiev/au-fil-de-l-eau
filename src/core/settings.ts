@@ -1,8 +1,8 @@
 import { CONFIG } from '../config';
 import { REBINDABLE_ACTIONS, type KeyBindings } from './controls';
+import { isQualitySetting, type QualitySetting } from './quality';
 import { readBoolean, readNumber, readObject } from './validate';
 
-export type Resolution = 'auto' | 'eco';
 /** Taille des textes de l'interface. */
 export type TextSize = 'normal' | 'large' | 'huge';
 export const TEXT_SIZES: readonly TextSize[] = ['normal', 'large', 'huge'];
@@ -13,8 +13,10 @@ export interface Settings {
   sfxVolume: number;
   ambienceVolume: number;
   musicVolume: number;
-  shadows: boolean;
-  resolution: Resolution;
+  /** Qualité graphique (automatique ou niveau fixe). */
+  quality: QualitySetting;
+  /** Affiche le nombre d'images par seconde. */
+  showFps: boolean;
   showBiteAlert: boolean;
   showHints: boolean;
   dayLengthMinutes: number;
@@ -50,8 +52,8 @@ export function parseSettings(value: unknown): Settings {
     sfxVolume: readNumber(raw.sfxVolume, defaults.sfxVolume, 0, 1),
     ambienceVolume: readNumber(raw.ambienceVolume, defaults.ambienceVolume, 0, 1),
     musicVolume: readNumber(raw.musicVolume, defaults.musicVolume, 0, 1),
-    shadows: readBoolean(raw.shadows, defaults.shadows),
-    resolution: raw.resolution === 'eco' || raw.resolution === 'auto' ? raw.resolution : defaults.resolution,
+    quality: parseQuality(raw, defaults.quality),
+    showFps: readBoolean(raw.showFps, defaults.showFps),
     showBiteAlert: readBoolean(raw.showBiteAlert, defaults.showBiteAlert),
     showHints: readBoolean(raw.showHints, defaults.showHints),
     dayLengthMinutes: DAY_LENGTHS.includes(dayLength) ? dayLength : defaults.dayLengthMinutes,
@@ -62,6 +64,16 @@ export function parseSettings(value: unknown): Settings {
     stickSensitivity: readNumber(raw.stickSensitivity, defaults.stickSensitivity, 0.5, 1.5),
     keyBindings: parseBindings(raw.keyBindings),
   };
+}
+
+/**
+ * Qualité graphique. Anciennes sauvegardes (avant ce réglage) : la définition
+ * « économe » ou les ombres coupées deviennent la qualité basse.
+ */
+function parseQuality(raw: Record<string, unknown>, fallback: QualitySetting): QualitySetting {
+  if (isQualitySetting(raw.quality)) return raw.quality;
+  if (raw.resolution === 'eco' || raw.shadows === false) return 'low';
+  return fallback;
 }
 
 /** Touches choisies : une chaîne courte par action connue. */

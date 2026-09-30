@@ -13,6 +13,8 @@ export class Hud {
   private readonly prompt: HTMLDivElement;
   private readonly toasts: HTMLDivElement;
   private hintsVisible = true;
+  /** Compteur d'images par seconde (Réglages › Affichage), créé à la première utilisation. */
+  private fps: HTMLDivElement | null = null;
 
   constructor(layer: HTMLElement) {
     this.layer = layer;
@@ -69,6 +71,21 @@ export class Hud {
   /** Vue rapprochée (vivier) : l'interface de jeu s'efface pour laisser voir. */
   setViewMode(active: boolean): void {
     this.layer.classList.toggle('is-viewing', active);
+  }
+
+  /** Compteur d'images par seconde en haut de l'écran ; null le cache. */
+  setFps(text: string | null): void {
+    if (text === null) {
+      if (this.fps) this.fps.hidden = true;
+      return;
+    }
+    if (!this.fps) {
+      this.fps = createElement('hud-fps');
+      // En tête du calque : les menus, le carnet et le ponton passent par-dessus
+      this.layer.prepend(this.fps);
+    }
+    this.fps.hidden = false;
+    this.fps.textContent = text;
   }
 
   /** Message éphémère au centre de l'écran. */

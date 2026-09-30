@@ -52,6 +52,14 @@ export class NightLights {
     }
   }
 
+  /**
+   * Nombre de vraies lumières allumées (qualité graphique) ; les autres
+   * objets gardent leur halo. Changer ce nombre recompile les shaders une fois.
+   */
+  setMaxLights(count: number): void {
+    this.lights.forEach((pointLight, index) => (pointLight.visible = index < count));
+  }
+
   /** `night` : 0 (jour) → 1 (pleine nuit). */
   update(dt: number, night: number): void {
     const { dayGlow, nightGlow, haloOpacity, light, beacon } = CONFIG.nightLights;

@@ -1,6 +1,5 @@
 import { ACESFilmicToneMapping, MathUtils, NeutralToneMapping, PCFShadowMap, WebGLRenderer, type PerspectiveCamera } from 'three';
 import { CONFIG } from '../config';
-import type { Resolution } from '../core/settings';
 
 /** Renderer WebGL : tone mapping (CONFIG.render.toneMapping), ombres douces (PCF + flou), stencil pour le masque d'eau. */
 export function createRenderer(container: HTMLElement): WebGLRenderer {
@@ -14,10 +13,9 @@ export function createRenderer(container: HTMLElement): WebGLRenderer {
   return renderer;
 }
 
-/** Définition du rendu : pleine (écrans haute densité jusqu'à ×2) ou économe (×1, plus fluide). */
-export function setResolution(renderer: WebGLRenderer, resolution: Resolution): void {
-  const max = resolution === 'eco' ? 1 : CONFIG.render.maxPixelRatio;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, max));
+/** Finesse du rendu : pixels par point d'écran, plafonnés à `cap` (la qualité graphique le choisit). */
+export function setPixelRatioCap(renderer: WebGLRenderer, cap: number): void {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, cap));
 }
 
 /** Adapte le rendu et la caméra à la taille de la fenêtre, maintenant et à chaque redimensionnement. */

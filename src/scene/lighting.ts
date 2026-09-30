@@ -21,6 +21,8 @@ export class Lighting {
   readonly hemisphere = new HemisphereLight();
   /** Direction vers la source de lumière (soleil ou lune). */
   private readonly direction = new Vector3(0, 1, 0);
+  /** Demi-côté (m) de la zone d'ombre actuelle. */
+  private area: number = CONFIG.render.shadowArea;
 
   constructor(scene: Scene) {
     configureShadow(this.sun);
@@ -37,12 +39,19 @@ export class Lighting {
     this.direction.copy(ambience.lightDirection);
   }
 
-  /** Taille de la carte d'ombre (px) ; la carte est recréée au prochain rendu. */
-  setShadowMapSize(size: number): void {
+  /**
+   * Ombres selon la qualité graphique : 'full' = grande zone (tout le décor
+   * proche), 'boat' = petite zone autour de la barque (seule elle fait une
+   * ombre) ; `mapSize` = finesse de la carte (px). La carte est recréée au
+   * prochain rendu si sa taille change.
+   */
+  setShadowQuality(mode: 'boat' | 'full', mapSize: number): void {
     const shadow = this.sun.shadow;
-    if (shadow.mapSize.x === size) return;
-    shadow.mapSize.set(size, size);
-    shadow.normalBias = normalBiasFor(size);
+    this.area = mode === 'full' ? CONFIG.render.shadowArea : CONFIG.render.boatShadowArea;
+    setFrustum(this.sun, this.area);
+    shadow.normalBias = normalBiasFor(this.area, mapSize);
+    if (shadow.mapSize.x === mapSize) return;
+    shadow.mapSize.set(mapSize, mapSize);
     shadow.map?.dispose();
     shadow.map = null;
   }
@@ -53,25 +62,34 @@ export class Lighting {
    * ombres scintillent dès que la barque bouge.
    */
   follow(focus: Vector3): void {
-    snapToShadowTexels(focus, this.direction, this.sun.shadow.mapSize.x, _snapped);
+    snapToShadowTexels(focus, this.direction, texelSize(this.area, this.sun.shadow.mapSize.x), _snapped);
     this.sun.target.position.copy(_snapped);
     this.sun.position.copy(_snapped).addScaledVector(this.direction, SUN_DISTANCE);
   }
 }
 
 /** Taille (m) d'un texel de la carte d'ombre. */
-function texelSize(mapSize: number): number {
-  return (2 * CONFIG.render.shadowArea) / mapSize;
+function texelSize(area: number, mapSize: number): number {
+  return (2 * area) / mapSize;
 }
 
 /** Décalage anti-acné (m) : un nombre fixe de texels, donc plus grand pour une carte moins fine. */
-function normalBiasFor(mapSize: number): number {
-  return CONFIG.render.shadowNormalBias * texelSize(mapSize);
+function normalBiasFor(area: number, mapSize: number): number {
+  return CONFIG.render.shadowNormalBias * texelSize(area, mapSize);
+}
+
+/** Cadre de la caméra d'ombre : un carré de demi-côté `area` autour du centre de la zone. */
+function setFrustum(sun: DirectionalLight, area: number): void {
+  const camera = sun.shadow.camera;
+  camera.left = -area;
+  camera.right = area;
+  camera.top = area;
+  camera.bottom = -area;
+  camera.updateProjectionMatrix();
 }
 
 /** `focus` arrondi à la grille des texels, dans le plan vu depuis la lumière. */
-function snapToShadowTexels(focus: Vector3, direction: Vector3, mapSize: number, out: Vector3): Vector3 {
-  const texel = texelSize(mapSize);
+function snapToShadowTexels(focus: Vector3, direction: Vector3, texel: number, out: Vector3): Vector3 {
   _right.crossVectors(WORLD_UP, direction);
   if (_right.lengthSq() < 1e-6) _right.set(1, 0, 0);
   _right.normalize();
@@ -89,12 +107,8 @@ function configureShadow(sun: DirectionalLight): void {
   sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
   sun.shadow.radius = shadowRadius;
   sun.shadow.bias = shadowBias;
-  sun.shadow.normalBias = normalBiasFor(shadowMapSize);
-  camera.left = -shadowArea;
-  camera.right = shadowArea;
-  camera.top = shadowArea;
-  camera.bottom = -shadowArea;
+  sun.shadow.normalBias = normalBiasFor(shadowArea, shadowMapSize);
   camera.near = 1;
   camera.far = SUN_DISTANCE * 2;
-  camera.updateProjectionMatrix();
+  setFrustum(sun, shadowArea);
 }

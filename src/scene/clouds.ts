@@ -30,6 +30,8 @@ export class Clouds {
   private drift = 0;
   /** Assombrissement du ciel couvert (0 → 1), repris par la lueur du dessous. */
   private overcast = 0;
+  /** Part des nuages gardés (qualité graphique). */
+  private density = 1;
 
   constructor(random: () => number = Math.random) {
     const { count, height, size, area } = CONFIG.clouds;
@@ -50,6 +52,11 @@ export class Clouds {
     this.group.name = 'clouds';
   }
 
+  /** Part des nuages affichés (qualité graphique), 0 → 1. */
+  setDensity(density: number): void {
+    this.density = density;
+  }
+
   /**
    * Le dessous des nuages prend la couleur de l'horizon (blanc bleuté le jour,
    * rose au couchant, bleu nuit la nuit) : vu depuis la barque, c'est surtout
@@ -68,7 +75,7 @@ export class Clouds {
     this.overcast = overcast;
     const { speed, direction, area, coverage } = CONFIG.clouds;
     this.drift += dt * speed * (1 + 2 * wind);
-    const shown = MathUtils.lerp(coverage.clear, coverage.overcast, overcast);
+    const shown = MathUtils.lerp(coverage.clear, coverage.overcast, overcast) * this.density;
     this.material.color.copy(WHITE).lerp(this.overcastColor, overcast);
     const dx = Math.cos(direction) * this.drift;
     const dz = Math.sin(direction) * this.drift;

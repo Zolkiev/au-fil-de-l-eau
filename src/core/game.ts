@@ -8,6 +8,8 @@ import { DEFAULT_PLACE, placeById, type PlaceId } from '../data/places';
 import { loadBobberModel } from '../fishing/bobber';
 import { FishingController } from '../fishing/fishingController';
 import { checkFishData } from '../fishing/fishSelector';
+import { isTouchMode } from './pointerMode';
+import { autoStartLevel, FpsMeter, QualityGovernor, type QualityLevel, type QualitySetting } from './quality';
 import { Ripples } from '../fishing/ripples';
 import { Rod, findRodMount, loadRodModel, type RodModel } from '../fishing/rod';
 import { Boat, type BoatControls } from '../scene/boat';
@@ -35,7 +37,7 @@ import { Lantern } from '../scene/lantern';
 import { createLevelHelpers } from '../scene/levelHelpers';
 import { loadLevel, type LevelData } from '../scene/levelLoader';
 import { Lighting } from '../scene/lighting';
-import { createRenderer, fitToWindow, setResolution } from '../scene/renderer';
+import { createRenderer, fitToWindow, setPixelRatioCap } from '../scene/renderer';
 import { Sky } from '../scene/sky';
 import { setWaterAmbience, setWaterFlow, setWaterTime, setWaterTint } from '../scene/water';
 import { createWaterSurface } from '../scene/waterSurface';
@@ -121,6 +123,11 @@ export class Game {
   private readonly leftHand = new Vector3();
   private readonly rightHand = new Vector3();
   private crankTurn = 0;
+  /** Qualité graphique : régulateur du mode automatique, compteur d'images, choix appliqué. */
+  private readonly governor = new QualityGovernor((level) => this.onQualityLowered(level));
+  private readonly fpsMeter = new FpsMeter();
+  private qualitySetting: QualitySetting | null = null;
+  private showFps = false;
   private readonly fsm = new StateMachine<GameState>('jeu', 'title', GAME_TRANSITIONS);
   private readonly scene = new Scene();
   private readonly clock = new GameClock();
@@ -373,6 +380,7 @@ export class Game {
       onReplayTutorial: () => this.replayTutorial(),
       onInstall: () => void this.pwa.install(),
       onUpdate: () => this.applyUpdate(),
+      currentQuality: () => this.governor.current,
     };
     return new Menus(this.hud.layer, actions, () => this.progress.settings, () => this.pwa);
   }
@@ -412,13 +420,43 @@ export class Game {
       ambience: settings.ambienceVolume,
       music: settings.musicVolume,
     });
-    this.lighting.sun.castShadow = settings.shadows;
-    setResolution(this.renderer, settings.resolution);
-    this.lighting.setShadowMapSize(settings.resolution === 'eco' ? CONFIG.render.shadowMapSizeEco : CONFIG.render.shadowMapSize);
+    this.applyQualitySetting(settings.quality);
+    this.showFps = settings.showFps;
+    if (!settings.showFps) this.hud.setFps(null);
     this.fishing.setShowBiteAlert(settings.showBiteAlert);
     this.hud.setHintsVisible(settings.showHints);
     this.clock.setDayLength(settings.dayLengthMinutes);
     this.applyComfort(settings);
+  }
+
+  /** Nouveau choix de qualité : niveau fixe, ou mode automatique (qui part d'un niveau selon l'appareil). */
+  private applyQualitySetting(setting: QualitySetting): void {
+    if (setting === this.qualitySetting) return;
+    this.qualitySetting = setting;
+    const level = setting === 'auto' ? autoStartLevel(isTouchMode()) : setting;
+    this.governor.start(level, setting === 'auto');
+    this.applyQuality(level);
+  }
+
+  /**
+   * Applique un niveau de qualité (CONFIG.quality.presets) : finesse de
+   * l'image, ombres (barque seule ou tout le décor), petite flore, lumières
+   * de nuit, nuages.
+   */
+  private applyQuality(level: QualityLevel): void {
+    const preset = CONFIG.quality.presets[level];
+    setPixelRatioCap(this.renderer, preset.pixelRatio);
+    this.lighting.setShadowQuality(preset.shadows, preset.shadowMapSize);
+    this.level.shadowCasters.forEach((mesh) => (mesh.castShadow = preset.shadows === 'full'));
+    this.level.flora.forEach((object) => (object.visible = preset.flora));
+    this.nightLights.setMaxLights(preset.nightLights);
+    this.clouds.setDensity(preset.clouds);
+  }
+
+  /** Mode automatique : le jeu ramait, la qualité vient de baisser d'un cran. */
+  private onQualityLowered(level: QualityLevel): void {
+    this.applyQuality(level);
+    this.hud.toast(TEXTS.settings.qualityLowered(TEXTS.settings.qualities[level]));
   }
 
   /** Confort et accessibilité : texte, animations, ferrage, bouchon, joystick, touches. */
@@ -533,6 +571,15 @@ export class Game {
     this.animate(dt, elapsed);
     this.renderer.render(this.scene, this.camera);
     this.input.endFrame();
+    this.measureFrame();
+  }
+
+  /** Fluidité : le mode automatique mesure, et le compteur s'affiche si on l'a demandé. */
+  private measureFrame(): void {
+    const now = performance.now();
+    this.governor.frame(now);
+    const fps = this.fpsMeter.frame(now);
+    if (fps !== null && this.showFps) this.hud.setFps(TEXTS.settings.fps(fps, TEXTS.settings.qualities[this.governor.current]));
   }
 
   /** Tout ce qui s'arrête en pause, dans le carnet ou sur l'écran titre. */

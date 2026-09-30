@@ -96,6 +96,10 @@ export interface LevelData {
   readonly sway: readonly Object3D[];
   /** Centre du faisceau tournant d'un phare, la nuit (Empty `beacon`) ; null s'il est absent. */
   readonly beacon: Vector3 | null;
+  /** Meshes du décor qui projettent une ombre en qualité moyenne et haute (la qualité basse les coupe). */
+  readonly shadowCasters: readonly Mesh[];
+  /** Petite flore (herbe, fleurs, galets) : cachée en qualité basse. */
+  readonly flora: readonly Object3D[];
 }
 
 type Role = 'spawn' | 'camera' | 'water' | 'zone' | 'collider' | 'decor' | 'cat' | 'pen' | 'penCamera' | 'flow' | 'beacon';
@@ -112,7 +116,7 @@ export async function loadLevel(path: string = CONFIG.assets.level): Promise<Lev
 export function parseLevel(root: Object3D, source: LevelData['source']): LevelData {
   root.updateMatrixWorld(true);
   const found = classify(root);
-  setupShadows(found.decor);
+  const shadowCasters = setupShadows(found.decor);
   const water = readWater(root, found.water);
   const spawn = readSpawn(found.spawn, water);
   return {
@@ -129,25 +133,35 @@ export function parseLevel(root: Object3D, source: LevelData['source']): LevelDa
     flow: readFlow(found.flow),
     sway: found.decor.filter((object) => blenderName(object).endsWith('_sway')),
     beacon: pickOne(found.beacon, 'beacon')?.getWorldPosition(new Vector3()) ?? null,
+    shadowCasters,
+    flora: found.decor.filter((object) => isSmallFlora(blenderName(object))),
   };
 }
 
 /**
  * Ombres du décor : tout le décor les reçoit. En projettent tous les objets
  * sauf le terrain (relief doux, et la plus grande surface à dessiner) et la
- * petite flore (`deco_grass*`, `deco_flowers*`, `deco_pebbles*` : ombre
- * invisible à cette taille, mais des milliers de triangles à redessiner).
+ * petite flore (ombre invisible à cette taille, mais des milliers de
+ * triangles à redessiner). Retourne les meshes qui projettent une ombre.
  */
-function setupShadows(decor: readonly Object3D[]): void {
+function setupShadows(decor: readonly Object3D[]): Mesh[] {
+  const casters: Mesh[] = [];
   for (const object of decor) {
     const name = blenderName(object);
-    const casts = !name.startsWith('deco_terrain') && !/^deco_(grass|flowers|pebbles)/.test(name);
+    const casts = !name.startsWith('deco_terrain') && !isSmallFlora(name);
     object.traverse((child) => {
       if (!(child instanceof Mesh)) return;
       child.receiveShadow = true;
       child.castShadow = casts;
+      if (casts) casters.push(child);
     });
   }
+  return casters;
+}
+
+/** Petite flore : `deco_grass*`, `deco_flowers*`, `deco_pebbles*`. */
+function isSmallFlora(name: string): boolean {
+  return /^deco_(grass|flowers|pebbles)/.test(name);
 }
 
 /**

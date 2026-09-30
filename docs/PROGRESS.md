@@ -21,8 +21,60 @@
 | + | Polish visuel (2) : lumières de nuit, correction de l'acné d'ombre | ✅ Livré le 2026-09-30, **à tester** |
 | + | Polish visuel (3) : ombres douces cuites, petite flore, matériel dans la barque | ✅ Livré le 2026-09-30, **à tester** |
 | + | Le pêcheur et les rames animées | ✅ Livré le 2026-09-30, **à tester** |
+| + | Qualité graphique (Auto / Basse / Moyenne / Haute) et compteur d'images | ✅ Livré le 2026-09-30, **à tester** |
 
 ---
+
+## Qualité graphique et compteur d'images
+
+### Livré
+
+- **Réglages › Affichage › Qualité graphique** : Auto, Basse, Moyenne,
+  Haute. Il remplace « Ombres » et « Définition ». Chaque niveau règle :
+
+  | | Basse | Moyenne | Haute |
+  | --- | --- | --- | --- |
+  | Finesse de l'image (pixels par point) | ×1 | ×1,5 | ×2 |
+  | Ombres | barque seule | tout le décor proche | tout le décor proche |
+  | Carte d'ombre | 512 px | 1024 px | 2048 px |
+  | Herbe, fleurs, galets | cachés | oui | oui |
+  | Vraies lumières de nuit | 1 | 2 | 3 |
+  | Nuages | moitié | tous | tous |
+
+- **Mode automatique** (par défaut) : il démarre en Haute sur ordinateur,
+  en Moyenne sur écran tactile, puis baisse d'un cran si le jeu passe sous
+  45 images par seconde en moyenne sur 4 s (un message le signale). Il ne
+  remonte jamais tout seul (pas de va-et-vient). Dans les réglages, une
+  note indique le niveau du moment.
+- **Compteur d'images par seconde** (Réglages › Affichage › Images par
+  seconde) : en haut de l'écran, avec le niveau de qualité (« 60 i/s ·
+  Moyenne »). Utile pour vérifier sur ton iPhone.
+- Les anciennes sauvegardes sont reprises : « Définition économe » ou
+  ombres coupées → qualité Basse.
+- Réglages : `CONFIG.quality`.
+
+### Vérifications déjà faites
+
+- Reprise des anciens réglages (6 cas) : « économe » → Basse, ombres
+  coupées → Basse, sinon Auto ; une valeur inconnue revient en Auto.
+- Passage en Basse : image ×1, ombre de la barque seule (zone de 6 m, carte
+  512 px), plus aucune ombre de décor, flore cachée, une seule lumière de
+  nuit. Capture de la vue de jeu en Basse, compteur affiché.
+- Mode automatique simulé : à 30 i/s, il baisse d'un cran ; à 60 i/s, rien
+  ne bouge ; déjà en Basse, il y reste ; des à-coups isolés sont ignorés.
+  En vrai, à 60 i/s, il reste en Haute.
+- Téléphone (375 px) : départ en Moyenne, le choix à 4 boutons tient, le
+  compteur passe sous les menus.
+
+### Comment tester
+
+- Sur ton iPhone : Réglages › Affichage › coche « Images par seconde »,
+  puis joue un moment ; essaie les trois niveaux pour comparer.
+
+### Limites connues
+
+- L'anticrénelage (bords lissés) ne dépend pas de la qualité : il est
+  choisi au lancement du navigateur.
 
 ## Le pêcheur et les rames animées
 

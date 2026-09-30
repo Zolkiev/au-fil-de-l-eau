@@ -141,7 +141,9 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
     barque ;
   - un pêcheur low poly anime la barque : il rame (rames animées), tient
     la canne, mouline, suit son bouchon du regard et lève les bras à la
-    prise.
+    prise ;
+  - réglage de qualité graphique (Auto / Basse / Moyenne / Haute) avec
+    baisse automatique si le jeu rame, et compteur d'images par seconde.
 
   Voir `docs/PROGRESS.md`. En attente du test de l'utilisateur.
 - Dépôt git **public** : https://github.com/Zolkiev/au-fil-de-l-eau (branche
@@ -197,7 +199,8 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   clignotaient (« acné »). Le décalage anti-acné (`normalBias`) vaut un
   nombre de texels, donc suit la taille de la carte. Le centre de la zone
   avance par pas d'un texel (`Lighting.follow`), sinon les bords
-  scintillent. Carte de 2048 px, 1024 en définition « Économe ».
+  scintillent. Taille de la carte et zone (tout le décor, ou la barque
+  seule) selon la qualité graphique (`Lighting.setShadowQuality`).
   (Écart assumé avec la spec d'origine, « ombres uniquement sur la barque ».)
 - Rendu des couleurs : tone mapping « Neutral » par défaut
   (`CONFIG.render.toneMapping`, 'aces' possible) ; le ciel (ShaderMaterial)
@@ -449,4 +452,16 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   l'attente, bras levés à la prise) ; le bras est résolu en IK à deux
   segments (coude vers l'extérieur et l'arrière). Mis à jour dans `animate`
   (tourne aussi en pause).
+- Qualité graphique : `src/core/quality.ts`. Le réglage `quality`
+  ('auto' | 'low' | 'medium' | 'high') remplace les anciens `shadows` et
+  `resolution` (repris par `parseQuality` : « économe » ou ombres coupées →
+  'low'). `Game.applyQuality(level)` applique `CONFIG.quality.presets` :
+  plafond du pixel ratio, ombres ('boat' ou 'full', taille de carte),
+  `LevelData.shadowCasters` et `LevelData.flora` (petite flore cachée),
+  `NightLights.setMaxLights`, `Clouds.setDensity`. En mode automatique,
+  `QualityGovernor` démarre selon l'appareil (tactile → 'medium') et baisse
+  d'un cran sous `minFps` (jamais de remontée) ; il mesure avec
+  `performance.now()` (sans le plafond de la boucle) et ignore les images
+  d'un onglet caché. `FpsMeter` + `Hud.setFps` : compteur (réglage
+  `showFps`). Tests : `game.governor.current`.
 

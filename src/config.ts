@@ -1,3 +1,5 @@
+import type { QualityLevel, QualitySetting } from './core/quality';
+
 /**
  * Tous les paramètres réglables du jeu, regroupés ici pour pouvoir les
  * ajuster sans fouiller le code.
@@ -567,9 +569,10 @@ export const CONFIG = {
     sfxVolume: 1,
     ambienceVolume: 1,
     musicVolume: 1,
-    shadows: true,
-    /** 'auto' = pleine définition (jusqu'à ×2) ; 'eco' = définition réduite, plus fluide. */
-    resolution: 'auto',
+    /** Qualité graphique : 'auto' (s'adapte à l'appareil), 'low', 'medium' ou 'high' (voir `quality`). */
+    quality: 'auto' as QualitySetting,
+    /** Affiche le nombre d'images par seconde (pour vérifier la fluidité). */
+    showFps: false,
     showBiteAlert: true,
     showHints: true,
     dayLengthMinutes: 12,
@@ -579,6 +582,29 @@ export const CONFIG = {
     easyHook: false,
     bigBobber: false,
     stickSensitivity: 1,
+  },
+
+  /**
+   * Qualité graphique (Réglages › Affichage). Chaque niveau règle :
+   * - pixelRatio : finesse de l'image (plafond du nombre de pixels par point d'écran) ;
+   * - shadows : 'boat' (seule la barque fait une ombre) ou 'full' (tout le décor proche) ;
+   * - shadowMapSize : finesse des ombres (px) ;
+   * - flora : herbe, fleurs et galets affichés ou non ;
+   * - nightLights : nombre de vraies lumières de nuit (lanternes, fenêtres) ;
+   * - clouds : part des nuages affichés.
+   */
+  quality: {
+    presets: {
+      low: { pixelRatio: 1, shadows: 'boat', shadowMapSize: 512, flora: false, nightLights: 1, clouds: 0.5 },
+      medium: { pixelRatio: 1.5, shadows: 'full', shadowMapSize: 1024, flora: true, nightLights: 2, clouds: 1 },
+      high: { pixelRatio: 2, shadows: 'full', shadowMapSize: 2048, flora: true, nightLights: 3, clouds: 1 },
+    } satisfies Record<QualityLevel, { pixelRatio: number; shadows: 'boat' | 'full'; shadowMapSize: number; flora: boolean; nightLights: number; clouds: number }>,
+    /**
+     * Mode automatique : niveau de départ (ordinateur, écran tactile), puis
+     * baisse d'un cran si le jeu passe sous `minFps` en moyenne sur `window`
+     * secondes. Mesure après `warmup` secondes (chargement, shaders).
+     */
+    auto: { startDesktop: 'high' as QualityLevel, startTouch: 'medium' as QualityLevel, minFps: 45, window: 4, warmup: 6 },
   },
 
   /** Confort et accessibilité (réglages du joueur). */
@@ -601,14 +627,14 @@ export const CONFIG = {
      */
     toneMapping: 'neutral' as 'neutral' | 'aces',
     exposure: 1,
-    /** Taille de la carte d'ombre (px) : plus grand = ombres plus fines, plus coûteuses. */
+    /** Taille de la carte d'ombre au démarrage (px) ; ensuite, selon la qualité graphique (CONFIG.quality). */
     shadowMapSize: 2048,
-    /** … avec la définition « Économe » (réglages). */
-    shadowMapSizeEco: 1024,
     /** Flou des ombres (en texels). */
     shadowRadius: 3,
     /** Demi-côté (m) de la zone d'ombre qui suit la barque : le décor proche y projette son ombre. */
     shadowArea: 32,
+    /** … quand seule la barque projette une ombre (qualité basse) : petite zone, ombre plus fine. */
+    boatShadowArea: 6,
     shadowBias: -0.0003,
     /**
      * Décalage le long des normales, en texels de la carte d'ombre (donc plus

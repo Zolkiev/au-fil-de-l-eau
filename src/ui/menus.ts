@@ -1,5 +1,6 @@
 import { keyHints } from '../core/controls';
 import { isTouchMode } from '../core/pointerMode';
+import type { QualityLevel } from '../core/quality';
 import type { Settings } from '../core/settings';
 import { createElement } from './hud';
 import { menuButton, SettingsPanel } from './settingsPanel';
@@ -18,6 +19,8 @@ export interface MenuActions {
   readonly onReplayTutorial: () => void;
   readonly onInstall: () => void;
   readonly onUpdate: () => void;
+  /** Niveau de qualité graphique en ce moment (affiché dans les réglages en mode automatique). */
+  readonly currentQuality: () => QualityLevel;
 }
 
 /** Ce que les menus montrent du jeu comme application (voir src/pwa/pwa.ts). */
@@ -70,6 +73,7 @@ export class Menus {
       onResetProgress: this.actions.onResetProgress,
       onReplayTutorial: fromPause ? this.actions.onReplayTutorial : undefined,
       onBack: () => this.back(),
+      currentQuality: this.actions.currentQuality,
     });
     this.render('settings', panel.element);
   }
