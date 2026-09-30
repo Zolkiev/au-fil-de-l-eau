@@ -17,6 +17,10 @@
 Sans le `.glb` d'un lieu, le jeu génère un lac de démonstration qui suit
 exactement ces conventions (`src/scene/placeholderLevel.ts`).
 
+Dans le jeu, tout le décor (`deco_*`) reçoit les ombres et, sauf le
+terrain (`deco_terrain`), en projette : un objet de décor flottant ou mal
+posé se voit donc encore plus.
+
 Le jeu est jouable hors connexion : tout fichier de `assets/` (niveau,
 poisson, son…) est mis en cache automatiquement au build suivant. Après un
 export, relance `npm run build` ; les joueurs verront « Mettre à jour » au
@@ -44,6 +48,17 @@ sources :
   ⚠ Il **remplace tout le fichier** : à ne relancer que pour repartir de zéro
   ou après avoir modifié les générateurs. Après des retouches à la main,
   utilise seulement l'export.
+- **`blender/check_assets.py`** contrôle toutes les scènes avant l'export :
+  - **faces superposées** : deux faces dans le même plan qui se recouvrent
+    clignotent dans le jeu (« z-fighting »). Typiquement deux pavés de même
+    taille qui se chevauchent, ou l'intérieur d'une coque collé à
+    l'extérieur. Décale ou redimensionne l'une des deux pièces de quelques
+    millimètres ;
+  - **décor qui flotte** : un élément posé au sol doit le toucher tout autour
+    de sa base (attention aux pentes : pose-le sous le point le plus bas du
+    terrain sous lui). Posé sur un autre élément, il peut déborder.
+  
+  Il affiche le nom des objets et un point de repère pour chaque problème.
 
 Les objets sont colorés par face (attribut de couleur « Col », lu par un
 matériau « Palette ») : pour recolorer, passe en mode *Vertex Paint* ou

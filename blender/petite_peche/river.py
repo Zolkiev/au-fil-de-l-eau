@@ -13,8 +13,8 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
-from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree
+from .common import Ground, MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
+from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree, tree_base
 
 SCENE_NAME = "river_01"
 
@@ -98,13 +98,13 @@ def build():
     scene = new_scene(SCENE_NAME)
     material = palette_material()
     groups = {name: new_collection(scene, name) for name in ("Terrain", "Eau", "Decor", "Collisions", "Zones", "Reperes")}
-    build_terrain(groups["Terrain"], material, rng)
+    ground = Ground(build_terrain(groups["Terrain"], material, rng))
     build_water(groups["Eau"], material)
     build_waterfall(groups["Decor"], material, rng)
-    boulders = build_boulders(groups["Decor"], material, rng)
-    build_reeds(groups["Decor"], material, rng)
+    boulders = build_boulders(groups["Decor"], material, rng, ground)
+    build_reeds(groups["Decor"], material, rng, ground)
     build_bridge(groups["Decor"], material)
-    build_trees(groups["Decor"], material, rng)
+    build_trees(groups["Decor"], material, rng, ground)
     build_colliders(groups["Collisions"], material, boulders)
     build_zones(groups["Zones"])
     build_markers(groups["Reperes"])
@@ -126,7 +126,7 @@ def build_terrain(collection, material, rng):
                 height = sum(p.z for p in triangle) / 3
                 x = sum(p.x for p in triangle) / 3
                 builder.polygon(triangle, terrain_color(height, 1 - normal.z, x, rng))
-    builder.to_object("deco_terrain", material, collection)
+    return builder.to_object("deco_terrain", material, collection)
 
 
 def build_water(collection, material):
@@ -166,7 +166,7 @@ def build_waterfall(collection, material, rng):
     builder.to_object("deco_waterfall", material, collection)
 
 
-def build_boulders(collection, material, rng):
+def build_boulders(collection, material, rng, ground):
     """Blocs dans le courant (zone de rochers) et quelques pierres sur les berges."""
     builder = MeshBuilder()
     spots = []
@@ -179,7 +179,9 @@ def build_boulders(collection, material, rng):
         x = rng.uniform(-80, 50)
         side = rng.choice((-1, 1))
         spot = bank_point(x, side * (half_width(x) + rng.uniform(0.5, 4)))
-        builder.blob((spot.x, spot.y, terrain_height(spot.x, spot.y)), rng.uniform(0.4, 1.0), rng.choice(ROCK_GREY),
+        size, color = rng.uniform(0.4, 1.0), rng.choice(ROCK_GREY)
+        # Posée au plus bas du sol sous elle : sur une berge en pente, elle ne flotte pas côté rivière
+        builder.blob((spot.x, spot.y, ground.lowest_under(spot.x, spot.y, 1.2 * size)), size, color,
                      scale=(1.2, 1.0, 0.7), jitter=0.2, rng=rng)
     builder.to_object("deco_rocks", material, collection)
     return spots
@@ -189,7 +191,7 @@ def reeds_center():
     return bank_point(BAY_X, -(half_width(BAY_X) - 2.5))
 
 
-def build_reeds(collection, material, rng):
+def build_reeds(collection, material, rng, ground):
     """Roseaux dans une anse calme, côté rive droite."""
     builder = MeshBuilder()
     greens = [rgba(0xb9c56d), rgba(0x9fb45a), rgba(0xc8c779)]
@@ -197,7 +199,7 @@ def build_reeds(collection, material, rng):
     for _ in range(55):
         angle, distance = rng.uniform(0, 2 * math.pi), math.sqrt(rng.random()) * 3.5
         x, y = spot.x + math.cos(angle) * distance, spot.y + math.sin(angle) * distance
-        base = terrain_height(x, y)
+        base = ground.lowest_under(x, y, 0.06) - 0.05
         height = max(0.0, -base) + rng.uniform(1.1, 2.1)
         tilt = Matrix.Rotation(rng.uniform(-0.12, 0.12), 4, 'X') @ Matrix.Rotation(rng.uniform(-0.12, 0.12), 4, 'Y')
         builder.cone((x, y, base + height / 2), 0.05, 0.01, height, 4, rng.choice(greens), rotation=tilt)
@@ -228,17 +230,20 @@ def build_bridge(collection, material):
         z0, z1 = bridge_height(t0), bridge_height(t1)
         slope = Matrix.Rotation(math.atan2(z1 - z0, y1 - y0), 4, 'X')
         length = math.hypot(y1 - y0, z1 - z0) + 0.05
-        builder.box((BRIDGE_X, (y0 + y1) / 2, (z0 + z1) / 2), (2.4, length, 0.18), WOOD_LIGHT if k % 2 else WOOD, rotation=slope)
+        # Les tronçons se chevauchent : largeurs alternées pour que leurs flancs ne soient pas dans le même plan
+        wider = 0.02 * (k % 2)
+        builder.box((BRIDGE_X, (y0 + y1) / 2, (z0 + z1) / 2), (2.4 + wider, length, 0.18), WOOD_LIGHT if k % 2 else WOOD, rotation=slope)
         for side in (-1, 1):
-            builder.box((BRIDGE_X + side * 1.1, (y0 + y1) / 2, (z0 + z1) / 2 + 0.85), (0.08, length, 0.08), WOOD_DARK, rotation=slope)
+            builder.box((BRIDGE_X + side * 1.1, (y0 + y1) / 2, (z0 + z1) / 2 + 0.85), (0.08 + wider, length, 0.08 + wider), WOOD_DARK, rotation=slope)
             if k % 3 == 0:
-                builder.box((BRIDGE_X + side * 1.1, y0, z0 + 0.45), (0.1, 0.1, 0.9), WOOD_DARK)
+                # Poteaux plus larges que la rambarde (10 cm au plus) : pas de flancs confondus
+                builder.box((BRIDGE_X + side * 1.1, y0, z0 + 0.45), (0.12, 0.12, 0.9), WOOD_DARK)
     for y in (start, end):
         builder.box((BRIDGE_X, y, BRIDGE_END - 0.6), (3.2, 1.8, 1.4), rgba(0x9b9d97))
     builder.to_object("deco_bridge", material, collection)
 
 
-def build_trees(collection, material, rng):
+def build_trees(collection, material, rng, ground):
     """Forêt sur les versants, à distance de l'eau, du pont et de la cascade."""
     builder = MeshBuilder()
     placed = 0
@@ -248,7 +253,8 @@ def build_trees(collection, material, rng):
         land = abs(y - center(x)) - half_width(x)
         if land < 5 or (Vector((x, y)) - bridge).length < 16 or abs(x - FALL_TOP) < 5:
             continue
-        add_tree(builder, rng, x, y, terrain_height(x, y) - 0.1, rng.uniform(0.8, 1.5))
+        scale = rng.uniform(0.8, 1.5)
+        add_tree(builder, rng, x, y, tree_base(ground, x, y, scale), scale)
         placed += 1
     builder.to_object("deco_trees_sway", material, collection)
 

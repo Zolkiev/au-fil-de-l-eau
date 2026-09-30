@@ -12,8 +12,8 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import MeshBuilder, circle_points, emissive_material, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
-from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree
+from .common import Ground, MeshBuilder, circle_points, emissive_material, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
+from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree, tree_base
 
 SCENE_NAME = "cove_01"
 
@@ -87,15 +87,15 @@ def build():
     scene = new_scene(SCENE_NAME)
     material = palette_material()
     groups = {name: new_collection(scene, name) for name in ("Terrain", "Eau", "Decor", "Collisions", "Zones", "Reperes")}
-    build_terrain(groups["Terrain"], material, rng)
+    ground = Ground(build_terrain(groups["Terrain"], material, rng))
     build_water(groups["Eau"], material)
     rocks = build_rocks(groups["Decor"], material, rng)
     build_seagrass(groups["Decor"], material, rng)
-    build_lighthouse(groups["Decor"], material)
+    build_lighthouse(groups["Decor"], material, ground)
     build_pier(groups["Decor"], material)
     build_hut_and_driftwood(groups["Decor"], material)
     build_buoys(groups["Decor"], material)
-    build_trees(groups["Decor"], material, rng)
+    build_trees(groups["Decor"], material, rng, ground)
     build_colliders(groups["Collisions"], material, rocks)
     build_zones(groups["Zones"])
     build_markers(groups["Reperes"])
@@ -116,7 +116,7 @@ def build_terrain(collection, material, rng):
                 normal = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]).normalized()
                 height = sum(p.z for p in triangle) / 3
                 builder.polygon(triangle, terrain_color(height, 1 - normal.z, rng))
-    builder.to_object("deco_terrain", material, collection)
+    return builder.to_object("deco_terrain", material, collection)
 
 
 def build_water(collection, material):
@@ -164,12 +164,14 @@ def build_seagrass(collection, material, rng):
     builder.to_object("deco_seagrass_sway", material, collection)
 
 
-def build_lighthouse(collection, material):
+def build_lighthouse(collection, material, ground):
     """Vieux phare rayé rouge et blanc sur le cap ouest ; sa lanterne brille (objet émissif à part)."""
     builder = MeshBuilder()
     x, y = LIGHTHOUSE_X, coast(LIGHTHOUSE_X) - 6
     z = terrain_height(x, y) - 0.3
-    builder.cone((x, y, z + 0.5), 1.9, 1.9, 1.0, 12, rgba(0x9b9d97))
+    # Socle de pierre : il descend jusqu'au point le plus bas du sol sous lui (le cap est en pente)
+    low = ground.lowest_under(x, y, 1.9) - 0.2
+    builder.cone((x, y, (low + z + 1.0) / 2), 1.9, 1.9, z + 1.0 - low, 12, rgba(0x9b9d97))
     bands = 5
     for k in range(bands):
         r0, r1 = 1.5 - 0.4 * k / bands, 1.5 - 0.4 * (k + 1) / bands
@@ -214,7 +216,8 @@ def build_hut_and_driftwood(collection, material):
     z = terrain_height(x, y) - 0.1
     builder.box((x, y, z + 1.1), (3.2, 2.6, 2.2), rgba(0x7fa8b8))
     for side in (-1, 1):
-        builder.box((x + side * 0.85, y, z + 2.6), (2.0, 3.0, 0.12), WHITE, rotation=Matrix.Rotation(side * 0.5, 4, 'Y'))
+        # Pans de longueurs un peu différentes : leurs bouts ne sont pas dans le même plan (sinon ils clignotent au faîtage)
+        builder.box((x + side * 0.85, y, z + 2.6), (2.0, 3.0 if side < 0 else 3.04, 0.12), WHITE, rotation=Matrix.Rotation(side * 0.5, 4, 'Y'))
     builder.box((x, y + 1.32, z + 0.9), (0.8, 0.06, 1.7), WOOD_DARK)
     for dx, dy, angle, length in [(4, -4, 0.3, 2.4), (-10, -5, -0.6, 1.8), (16, -6, 1.2, 2.0)]:
         px, py = x + dx, coast(x + dx) + dy
@@ -234,7 +237,7 @@ def build_buoys(collection, material):
     builder.to_object("deco_buoys", material, collection)
 
 
-def build_trees(collection, material, rng):
+def build_trees(collection, material, rng, ground):
     """Pins sur les caps et les collines, à l'écart de la plage et du phare."""
     builder = MeshBuilder()
     placed = 0
@@ -244,7 +247,8 @@ def build_trees(collection, material, rng):
         land = coast(x) - y
         if land < 6 or (abs(x) < 16 and land < 22) or (Vector((x, y)) - lighthouse).length < 7:
             continue
-        add_tree(builder, rng, x, y, terrain_height(x, y) - 0.1, rng.uniform(0.9, 1.6), fir=rng.random() < 0.85)
+        scale = rng.uniform(0.9, 1.6)
+        add_tree(builder, rng, x, y, tree_base(ground, x, y, scale), scale, fir=rng.random() < 0.85)
         placed += 1
     builder.to_object("deco_trees_sway", material, collection)
 

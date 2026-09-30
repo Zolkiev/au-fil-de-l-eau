@@ -70,6 +70,8 @@ const fragmentShader = /* glsl */ `
     float behindMoon = smoothstep(0.9995, 0.9997, dot(direction, moonDirection));
     color += vec3(stars(direction)) * night * aboveHorizon * (1.0 - behindMoon) * (1.0 - cloudiness);
     gl_FragColor = vec4(color, 1.0);
+    // Même rendu des couleurs que le reste de la scène (sinon l'horizon ne raccorde pas avec le brouillard)
+    #include <tonemapping_fragment>
     #include <colorspace_fragment>
   }
 `;
@@ -101,6 +103,7 @@ export class Sky {
       fragmentShader,
       side: BackSide,
       depthWrite: false,
+      toneMapped: true,
     });
     this.mesh = new Mesh(new SphereGeometry(SKY_RADIUS, 32, 16), material);
     this.mesh.name = 'sky';

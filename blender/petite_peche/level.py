@@ -11,7 +11,7 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import (MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene,
+from .common import (Ground, MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene,
                      oriented_quad, palette_material, rgba, smoothstep)
 
 SCENE_NAME = "lake_01"
@@ -92,7 +92,7 @@ def build():
     groups = {name: new_collection(scene, name) for name in ("Terrain", "Eau", "Decor", "Collisions", "Zones", "Reperes")}
     south = shore_radius(-math.pi / 2)
 
-    build_terrain(groups["Terrain"], material, rng)
+    ground = Ground(build_terrain(groups["Terrain"], material, rng))
     build_water(groups["Eau"], material)
     rock_spots = build_rocks(groups["Decor"], material, rng)
     reed_spots = build_reeds(groups["Decor"], material, rng)
@@ -100,7 +100,7 @@ def build():
     jetty = build_jetty(groups["Decor"], material, south)
     build_cabin(groups["Decor"], material, cabin)
     pen = build_fish_pen(groups["Decor"], groups["Reperes"], material, Vector((2.4, -(south + 5.6))))
-    build_trees(groups["Decor"], material, rng, avoid=[(cabin, 7.0), (jetty, 6.0), (pen, 3.5)])
+    build_trees(groups["Decor"], material, rng, ground, avoid=[(cabin, 7.0), (jetty, 6.0), (pen, 3.5)])
     build_colliders(groups["Collisions"], material, rock_spots, south)
     build_zones(groups["Zones"], rock_spots, reed_spots, south)
     build_markers(groups["Reperes"], south)
@@ -121,7 +121,7 @@ def build_terrain(collection, material, rng):
                 normal = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]).normalized()
                 height = sum(p.z for p in triangle) / 3
                 builder.polygon(triangle, terrain_color(height, 1 - normal.z, rng))
-    builder.to_object("deco_terrain", material, collection)
+    return builder.to_object("deco_terrain", material, collection)
 
 
 def build_water(collection, material):
@@ -248,14 +248,15 @@ def build_cabin(collection, material, position):
     builder.box((x, y, z + 1.2), (4.0, 3.2, 2.4), WOOD)
     for side in (-1, 1):
         roof = Matrix.Rotation(side * 0.55, 4, 'Y')
-        builder.box((x + side * 1.05, y, z + 2.95), (2.5, 3.7, 0.14), ROOF, rotation=roof)
+        # Pans de longueurs un peu différentes : leurs bouts ne sont pas dans le même plan (sinon ils clignotent au faîtage)
+        builder.box((x + side * 1.05, y, z + 2.95), (2.5, 3.7 if side < 0 else 3.74, 0.14), ROOF, rotation=roof)
     builder.box((x - 0.8, y - 1.62, z + 0.95), (0.8, 0.06, 1.8), WOOD_DARK)
     builder.box((x + 0.9, y - 1.62, z + 1.4), (0.9, 0.06, 0.7), rgba(0xcfe3ea))
     builder.box((x + 1.2, y + 0.8, z + 3.4), (0.4, 0.4, 1.2), rgba(0x8a8a84))
     builder.to_object("deco_cabin", material, collection)
 
 
-def build_trees(collection, material, rng, avoid):
+def build_trees(collection, material, rng, ground, avoid):
     """Forêt autour du lac (sapins surtout, quelques feuillus) et deux arbres sur l'île."""
     builder = MeshBuilder()
     placed = 0
@@ -263,25 +264,45 @@ def build_trees(collection, material, rng, avoid):
         x, y = rng.uniform(-88, 88), rng.uniform(-88, 88)
         if lake_distance(x, y) > -4 or any((Vector((x, y)) - center).length < radius for center, radius in avoid):
             continue
-        add_tree(builder, rng, x, y, terrain_height(x, y) - 0.1, rng.uniform(0.8, 1.5))
+        scale = rng.uniform(0.8, 1.5)
+        add_tree(builder, rng, x, y, tree_base(ground, x, y, scale), scale)
         placed += 1
-    add_tree(builder, rng, ISLAND_CENTER.x, ISLAND_CENTER.y, 1.1, 1.1, fir=True)
-    add_tree(builder, rng, ISLAND_CENTER.x + 1.2, ISLAND_CENTER.y - 0.8, 0.7, 0.6, fir=False)
+    for dx, dy, scale, fir in [(0.0, 0.0, 1.1, True), (1.2, -0.8, 0.6, False)]:
+        x, y = ISLAND_CENTER.x + dx, ISLAND_CENTER.y + dy
+        add_tree(builder, rng, x, y, tree_base(ground, x, y, scale), scale, fir=fir)
     builder.to_object("deco_trees_sway", material, collection)
+
+
+# Les arbres sont enfoncés un peu sous le point le plus bas du sol autour du tronc
+TREE_SINK = 0.08
+
+
+def tree_base(ground, x, y, scale):
+    """
+    Pied d'un arbre : sous le point le plus bas du sol autour du tronc (jamais
+    en l'air sur une pente). L'enfoncement varie de 0 à 2 cm d'un arbre à
+    l'autre (d'après sa position) : deux arbres voisins n'ont jamais leurs
+    étages de feuillage exactement à la même hauteur (faces confondues).
+    """
+    variation = 0.02 * ((x * 7.13 + y * 3.71) % 1.0)
+    return ground.lowest_under(x, y, 0.25 * scale) - TREE_SINK - variation
 
 
 def add_tree(builder, rng, x, y, z, scale, fir=None):
     fir = rng.random() < 0.7 if fir is None else fir
     trunk = rgba(0x8a6a4f)
+    # Chaque arbre tourné à sa façon (angle tiré de sa position, sans toucher au tirage aléatoire) :
+    # la forêt paraît moins uniforme, et deux arbres voisins n'ont pas de faces confondues
+    spin = Matrix.Rotation((x * 12.9898 + y * 78.233) % (2 * math.pi), 4, 'Z')
     if fir:
         green = rng.choice([rgba(0x5f9e6e), rgba(0x71ad73), rgba(0x4f8a67)])
-        builder.cone((x, y, z + 0.7 * scale), 0.22 * scale, 0.18 * scale, 1.4 * scale, 6, trunk)
+        builder.cone((x, y, z + 0.7 * scale), 0.22 * scale, 0.18 * scale, 1.4 * scale, 6, trunk, rotation=spin)
         for height, radius, depth in [(1.9, 1.7, 2.4), (3.0, 1.3, 2.0), (4.0, 0.85, 1.6)]:
-            builder.cone((x, y, z + height * scale), radius * scale, 0.0, depth * scale, 7, green)
+            builder.cone((x, y, z + height * scale), radius * scale, 0.0, depth * scale, 7, green, rotation=spin)
     else:
         green = rng.choice([rgba(0x8fbf6a), rgba(0x7fb068), rgba(0xa7c96e)])
-        builder.cone((x, y, z + 0.9 * scale), 0.2 * scale, 0.15 * scale, 1.8 * scale, 6, trunk)
-        builder.blob((x, y, z + 2.6 * scale), 1.5 * scale, green, scale=(1.0, 1.0, 0.85), jitter=0.12, rng=rng)
+        builder.cone((x, y, z + 0.9 * scale), 0.2 * scale, 0.15 * scale, 1.8 * scale, 6, trunk, rotation=spin)
+        builder.blob((x, y, z + 2.6 * scale), 1.5 * scale, green, scale=(1.0, 1.0, 0.85), jitter=0.12, rng=rng, rotation=spin)
 
 
 def build_colliders(collection, material, rocks, south):

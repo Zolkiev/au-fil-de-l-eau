@@ -17,8 +17,78 @@
 | + | Accessibilité et confort (texte, animations, ferrage, touches) | ✅ Livré le 2026-09-30, **à tester** |
 | + | Troisième lieu : la crique (6 espèces marines) | ✅ Livré le 2026-09-30, **à tester** |
 | + | Application installable (PWA) et jeu hors connexion | ✅ Livré le 2026-09-30, **à tester** |
+| + | Polish visuel (1) : assets corrigés, éclairage, ombres du décor, nuages | ✅ Livré le 2026-09-30, **à tester** |
 
 ---
+
+## Polish visuel (1) : assets, éclairage, ombres, nuages
+
+### Livré
+
+- **Barque** : le tableau arrière et l'étrave ne clignotent plus. Faces
+  extérieure, intérieure et tranche étaient dans le même plan ; l'intérieur
+  s'arrête maintenant 5 cm avant (épaisseur des planches).
+- **Contrôle automatique des assets** (`blender/check_assets.py`) : faces
+  superposées et décor qui flotte, dans toutes les scènes. Il a trouvé et on
+  a corrigé :
+  - l'arbre de l'île du lac (33 cm au-dessus du sol) et des arbres en pente
+    (jusqu'à 14 cm de vide côté aval), au lac et à la crique ;
+  - un rocher de la rivière (22 cm) et quelques roseaux ;
+  - le socle du phare (58 cm de vide côté pente) ;
+  - les toits de la cabane (lac) et de la cabane de plage, le pont de la
+    rivière (306 triangles), la poignée de la canne, les pupilles des 22
+    poissons.
+
+  Le décor est maintenant posé sur le **vrai maillage** du terrain
+  (`Ground` dans `common.py`), sous le point le plus bas autour de sa base.
+  Chaque arbre est aussi tourné à sa façon (forêt moins uniforme).
+- **Éclairage** :
+  - tone mapping « Neutral » à la place d'ACES : les couleurs de la palette
+    restent franches (`CONFIG.render.toneMapping`, 'aces' pour revenir) ;
+  - soleil plus fort, lumière du ciel plus douce : les faces à l'ombre et au
+    soleil se distinguent, le relief ressort ;
+  - soleil plus bas le matin et le soir (ombres plus longues, lumière
+    dorée), ciel plus bleu le jour, brouillard plus lointain ;
+  - le ciel passe par le même rendu des couleurs que le reste (l'horizon
+    raccorde avec le brouillard) ;
+  - l'eau reflète davantage le ciel (bleue le jour, rose au couchant) et
+    reste claire malgré une lumière du ciel plus douce.
+- **Ombres du décor** : la zone d'ombre suit la barque sur 64 m. Arbres,
+  roseaux, rochers, cabane, ponton, pont, phare, Moustache et la barque y
+  projettent leur ombre, sur le terrain, l'eau et le décor. Elle avance par
+  pas d'un pixel d'ombre : pas de scintillement quand on rame. Carte de
+  2048 px, 1024 en définition « Économe ».
+- **Nuages low poly** : une vingtaine d'amas qui dérivent lentement (plus
+  vite avec le vent), dessous éclairé par la couleur de l'horizon : blancs
+  le jour, pêche et rose au couchant, bleutés la nuit. Sous la pluie ou dans
+  la brume, ils sont plus nombreux et plus gris. Réglages : `CONFIG.clouds`.
+
+### Vérifications déjà faites
+
+- Contrôle des assets : rien à signaler après les corrections. L'outil a été
+  vérifié sur une scène d'essai (bloc qui flotte et bloc en pente détectés,
+  toit qui déborde d'un poteau accepté).
+- Captures : tableau arrière (uni, plus de damier), île (arbres plantés),
+  lac à 7 h, 14 h, 19 h 20 et 22 h 30, nuages de jour, au couchant et sous la
+  pluie, rivière (ombre du pont sur l'eau), crique (falaises à l'ombre).
+- Une image complète (mise à jour + rendu avec ombres) prend moins de 1 ms
+  sur le Mac de développement. La fluidité sur téléphone reste à juger en
+  jouant.
+
+### Comment tester
+
+- Joue à différentes heures (touche T = +1 h) et par différents temps
+  (`game.weather.set('rain')` en console).
+- Rame près des berges : les arbres font de l'ombre sur l'eau et sur la
+  barque.
+- Réglages › Définition « Économe » : ombres plus légères pour les petits
+  appareils.
+
+### Limites connues
+
+- Les ombres des arbres ne suivent pas leur balancement au vent.
+- Au-delà de 32 m de la barque, le décor ne projette plus d'ombre (la zone
+  suit la barque).
 
 ## Application installable (PWA) et jeu hors connexion
 

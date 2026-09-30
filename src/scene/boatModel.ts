@@ -10,13 +10,16 @@ const WOOD_LIGHT = 0xdcb58c;
 
 /**
  * Charge `assets/props/boat.glb`, ou fabrique une barque en boîtes s'il est absent.
- * Seule la barque projette une ombre.
+ * Elle projette son ombre, et reçoit celles du décor (arbres près de la berge…).
  */
 export async function loadBoatModel(): Promise<Object3D> {
   const gltf = await loadGLB(CONFIG.assets.boat, 'Barque');
   const model = gltf?.scene ?? createPlaceholderBoat();
   model.traverse((child) => {
-    if (child instanceof Mesh) child.castShadow = true;
+    if (child instanceof Mesh) {
+      child.castShadow = true;
+      child.receiveShadow = true;
+    }
   });
   applyWaterMask(model);
   return model;

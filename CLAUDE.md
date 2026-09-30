@@ -133,11 +133,18 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   - un troisième lieu : la crique, au bord de la mer (6 espèces marines),
     qui se débloque à la 4ᵉ espèce de la rivière ;
   - le jeu est une PWA : installable, jouable hors connexion, mises à jour
-    proposées depuis le menu.
+    proposées depuis le menu ;
+  - polish visuel (en cours) : assets corrigés (faces qui clignotaient,
+    décor qui flottait), éclairage revu, ombres du décor, nuages.
 
   Voir `docs/PROGRESS.md`. En attente du test de l'utilisateur.
-- Pas de `git commit` ni de `push` (consigne de l'utilisateur ; le dossier
-  n'est pas un dépôt git).
+- Dépôt git **public** : https://github.com/Zolkiev/au-fil-de-l-eau (branche
+  `main`, commits signés `jael.pattyn@gmail.com`, réglage local du dépôt).
+  Chaque push sur `main` met le jeu en ligne sur
+  https://zolkiev.github.io/au-fil-de-l-eau/ (`.github/workflows/deploy.yml`,
+  GitHub Pages en source « GitHub Actions »). Ne committer et ne pousser que
+  sur demande de l'utilisateur ; le push passe par son terminal (connexion
+  GitHub via Git Credential Manager).
 - Détail, vérifications et limites connues : `docs/PROGRESS.md`.
 
 ## Commandes
@@ -176,8 +183,26 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
 - three r186 : `PCFSoftShadowMap` a été retiré, on utilise `PCFShadowMap` avec
   `shadow.radius`. Les décodeurs Draco sont embarqués via `DRACO_GLTF_CONFIG`.
   `Clock` est déprécié ; la boucle utilise `performance.now()`.
-- Seule la barque projette une ombre (avec la canne), et seule l'eau la
-  reçoit.
+- Ombres : la zone d'ombre (`CONFIG.render.shadowArea`, 64 m de côté) suit
+  la barque. Tout le décor les reçoit et, sauf le terrain, en projette
+  (`setupShadows` dans `levelLoader.ts`) ; la barque et le chat aussi. Le
+  centre de la zone avance par pas d'un texel (`Lighting.follow`), sinon les
+  bords scintillent. Carte de 2048 px, 1024 en définition « Économe ».
+  (Écart assumé avec la spec d'origine, « ombres uniquement sur la barque ».)
+- Rendu des couleurs : tone mapping « Neutral » par défaut
+  (`CONFIG.render.toneMapping`, 'aces' possible) ; le ciel (ShaderMaterial)
+  est tone-mappé lui aussi pour raccorder avec le brouillard. (Écart assumé
+  avec la spec d'origine, « tone mapping ACES ».)
+- Nuages : `Clouds` (`src/scene/clouds.ts`), amas d'icosaèdres fusionnés qui
+  bouclent dans un carré centré sur la caméra, sans brouillard, dessous
+  éclairé par la couleur de l'horizon (`setAmbience`). Couverture et teinte
+  suivent la pluie et la brume.
+- Contrôle des assets : `blender/check_assets.py` (via le MCP Blender)
+  signale les faces superposées (qui clignotent) et le décor qui flotte. À
+  relancer après toute modification des générateurs. Pour poser du décor sur
+  le sol dans un générateur : `Ground(terrain).lowest_under(x, y, rayon)`
+  (vrai maillage, pas la formule du relief) ; les arbres passent par
+  `tree_base()` (`level.py`).
 - Pêche : `FishingController` orchestre les modules de `src/fishing/` via
   une `StateMachine` (`src/core/stateMachine.ts`). Les transitions sont
   dans `fishingState.ts`. Le temps passé dans un état (`timeInState`) est

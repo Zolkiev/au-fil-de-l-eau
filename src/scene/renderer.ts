@@ -1,12 +1,12 @@
-import { ACESFilmicToneMapping, MathUtils, PCFShadowMap, WebGLRenderer, type PerspectiveCamera } from 'three';
+import { ACESFilmicToneMapping, MathUtils, NeutralToneMapping, PCFShadowMap, WebGLRenderer, type PerspectiveCamera } from 'three';
 import { CONFIG } from '../config';
 import type { Resolution } from '../core/settings';
 
-/** Renderer WebGL : tone mapping ACES, ombres douces (PCF + flou), stencil pour le masque d'eau. */
+/** Renderer WebGL : tone mapping (CONFIG.render.toneMapping), ombres douces (PCF + flou), stencil pour le masque d'eau. */
 export function createRenderer(container: HTMLElement): WebGLRenderer {
   const renderer = new WebGLRenderer({ antialias: true, stencil: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, CONFIG.render.maxPixelRatio));
-  renderer.toneMapping = ACESFilmicToneMapping;
+  renderer.toneMapping = CONFIG.render.toneMapping === 'aces' ? ACESFilmicToneMapping : NeutralToneMapping;
   renderer.toneMappingExposure = CONFIG.render.exposure;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = PCFShadowMap;

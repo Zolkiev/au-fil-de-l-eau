@@ -10,7 +10,11 @@ const CREAM = 0xf6e3c6;
 /** Charge `assets/props/cat.glb`, ou fabrique Moustache en primitives. */
 export async function loadCatModel(): Promise<Object3D> {
   const gltf = await loadGLB(CONFIG.assets.cat, 'Moustache (chat)');
-  return gltf?.scene ?? createPlaceholderCat();
+  const model = gltf?.scene ?? createPlaceholderCat();
+  model.traverse((child) => {
+    if (child instanceof Mesh) child.castShadow = child.receiveShadow = true;
+  });
+  return model;
 }
 
 /**

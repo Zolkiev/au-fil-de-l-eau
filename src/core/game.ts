@@ -17,6 +17,7 @@ import { CameraRig, createCamera } from '../scene/cameraRig';
 import { currentBoosts } from '../progression/rendezvous';
 import type { Pwa } from '../pwa/pwa';
 import { Cat, loadCatModel } from '../scene/cat';
+import { Clouds } from '../scene/clouds';
 import { DayNight } from '../scene/dayNight';
 import { Decor } from '../scene/decor';
 import { DriftingLeaves } from '../scene/driftingLeaves';
@@ -107,6 +108,7 @@ export class Game {
   private readonly fishSigns: FishSigns;
   private readonly windSway: WindSway;
   private readonly critters: Critters;
+  private readonly clouds = new Clouds();
   private readonly fsm = new StateMachine<GameState>('jeu', 'title', GAME_TRANSITIONS);
   private readonly scene = new Scene();
   private readonly clock = new GameClock();
@@ -196,7 +198,7 @@ export class Game {
     const sea = placeById(this.place).sea;
     this.critters = new Critters(level, sea?.birdColor);
     this.applySeaLook();
-    this.scene.add(this.weatherEffects.group, this.fishSigns.group, this.critters.group);
+    this.scene.add(this.weatherEffects.group, this.fishSigns.group, this.critters.group, this.clouds.group);
     this.cat = level.cat ? new Cat(assets.catModel, level.cat) : null;
     if (this.cat) this.scene.add(this.cat.root);
     this.fishingHud = new FishingHud(hud.layer, {
@@ -395,6 +397,7 @@ export class Game {
     });
     this.lighting.sun.castShadow = settings.shadows;
     setResolution(this.renderer, settings.resolution);
+    this.lighting.setShadowMapSize(settings.resolution === 'eco' ? CONFIG.render.shadowMapSizeEco : CONFIG.render.shadowMapSize);
     this.fishing.setShowBiteAlert(settings.showBiteAlert);
     this.hud.setHintsVisible(settings.showHints);
     this.clock.setDayLength(settings.dayLengthMinutes);
@@ -562,6 +565,7 @@ export class Game {
     this.updateCatBubble();
     this.lighting.follow(this.boat.position);
     this.sky.follow(this.camera.position);
+    this.clouds.update(dt, this.camera.position, this.weather.intensity('wind'), this.weatherEffects.cloudiness(this.weather));
     this.fishingHud.setTime(this.clock.label, this.timeIcon());
     const weather = WEATHERS[this.weather.id];
     this.fishingHud.setWeather(weather.icon, weather.name);
@@ -581,6 +585,7 @@ export class Game {
     this.weatherEffects.tint(ambience, this.weather);
     const { night } = ambience.values;
     this.sky.setAmbience(ambience);
+    this.clouds.setAmbience(ambience);
     this.sky.setMoonPhase(this.clock.moonPhase);
     this.sky.setCloudiness(this.weatherEffects.cloudiness(this.weather));
     this.audio.setWeather(this.weather.intensity('rain'), this.weather.intensity('wind'));

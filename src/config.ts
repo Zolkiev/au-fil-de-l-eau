@@ -347,6 +347,30 @@ export const CONFIG = {
   /** Durée du fondu avant de recharger la page pour changer de lieu (ms). */
   travelDelayMs: 900,
 
+  /** Nuages qui dérivent dans le ciel (src/scene/clouds.ts). */
+  clouds: {
+    count: 22,
+    /** Demi-côté (m) du carré, centré sur la caméra, dans lequel les nuages bouclent. */
+    area: 420,
+    /**
+     * Altitude (m). Vus depuis la barque, les nuages doivent passer juste
+     * au-dessus des collines, dans la bande de ciel visible : loin, assez
+     * hauts et gros.
+     */
+    height: { min: 60, max: 95 },
+    /** Longueur d'un nuage (m). */
+    size: { min: 60, max: 110 },
+    /** Dérive (m/s) et sa direction (rad) ; le vent la triple. */
+    speed: 1.5,
+    direction: 0.6,
+    /** Part des nuages visibles par beau temps, puis sous la pluie ou dans la brume. */
+    coverage: { clear: 0.55, overcast: 1 },
+    /** Teinte des nuages quand le ciel se couvre. */
+    overcastColor: 0x9aa3ad,
+    /** Lueur du dessous des nuages (× couleur de l'horizon). */
+    underGlow: 0.7,
+  },
+
   /** Application installée (PWA, src/pwa/). */
   pwa: {
     /** Écart minimal entre deux recherches de mise à jour, au retour sur le jeu (minutes). */
@@ -506,13 +530,23 @@ export const CONFIG = {
 
   render: {
     maxPixelRatio: 2,
+    /**
+     * Rendu des couleurs : 'neutral' garde les couleurs de la palette telles
+     * quelles ; 'aces' (plus cinéma) les désature et les assombrit un peu.
+     */
+    toneMapping: 'neutral' as 'neutral' | 'aces',
     exposure: 1,
-    shadowMapSize: 1024,
+    /** Taille de la carte d'ombre (px) : plus grand = ombres plus fines, plus coûteuses. */
+    shadowMapSize: 2048,
+    /** … avec la définition « Économe » (réglages). */
+    shadowMapSizeEco: 1024,
     /** Flou des ombres (en texels). */
-    shadowRadius: 4,
-    /** Demi-côté de la zone d'ombre autour de la barque. */
-    shadowArea: 6,
-    shadowBias: -0.0005,
+    shadowRadius: 3,
+    /** Demi-côté (m) de la zone d'ombre qui suit la barque : le décor proche y projette son ombre. */
+    shadowArea: 32,
+    shadowBias: -0.0003,
+    /** Décalage le long des normales (m) : évite l'« acné » des ombres sur les pentes. */
+    shadowNormalBias: 0.04,
   },
 
   /**
@@ -523,15 +557,15 @@ export const CONFIG = {
    */
   dayNight: {
     keyframes: [
-      { hour: 0, skyTop: 0x0c1630, skyHorizon: 0x26375e, sun: 0x9fb2ee, sunIntensity: 1.4, hemiSky: 0x6078b5, hemiGround: 0x1f2838, hemiIntensity: 2, water: 0x3a6a92, fogNear: 30, fogFar: 170, night: 1 },
-      { hour: 4.5, skyTop: 0x101c3a, skyHorizon: 0x32406a, sun: 0x9fb2ee, sunIntensity: 1.35, hemiSky: 0x6078b5, hemiGround: 0x1f2838, hemiIntensity: 1.9, water: 0x3c6c94, fogNear: 25, fogFar: 150, night: 1 },
-      { hour: 6.5, skyTop: 0x7f9dcc, skyHorizon: 0xf4b98c, sun: 0xffbf8a, sunIntensity: 1.3, hemiSky: 0xc8d2ef, hemiGround: 0x7a765a, hemiIntensity: 1.15, water: 0x5596b0, fogNear: 20, fogFar: 150, night: 0 },
-      { hour: 9, skyTop: 0x78aede, skyHorizon: 0xf3dcc4, sun: 0xfff0d8, sunIntensity: 2.2, hemiSky: 0xd4e8ff, hemiGround: 0x8c9a6c, hemiIntensity: 1.3, water: 0x4f9fb3, fogNear: 45, fogFar: 230, night: 0 },
-      { hour: 14, skyTop: 0x6aa7de, skyHorizon: 0xe9e6d6, sun: 0xffffff, sunIntensity: 2.4, hemiSky: 0xd8ecff, hemiGround: 0x8f9f6e, hemiIntensity: 1.35, water: 0x4a9db3, fogNear: 55, fogFar: 250, night: 0 },
-      { hour: 17.5, skyTop: 0x7a9fd2, skyHorizon: 0xf6d4aa, sun: 0xffdba2, sunIntensity: 1.9, hemiSky: 0xd6dcf2, hemiGround: 0x8a9064, hemiIntensity: 1.2, water: 0x4a92aa, fogNear: 45, fogFar: 220, night: 0 },
-      { hour: 19.5, skyTop: 0x5b6fa8, skyHorizon: 0xf29f7a, sun: 0xff9a66, sunIntensity: 1.8, hemiSky: 0xb3a3cb, hemiGround: 0x6a5a4a, hemiIntensity: 1.6, water: 0x5a8fae, fogNear: 35, fogFar: 190, night: 0.15 },
-      { hour: 21, skyTop: 0x1a2347, skyHorizon: 0x574a78, sun: 0x9fb2ee, sunIntensity: 1.3, hemiSky: 0x606fa8, hemiGround: 0x232a38, hemiIntensity: 1.8, water: 0x3a6690, fogNear: 30, fogFar: 175, night: 0.9 },
-      { hour: 24, skyTop: 0x0c1630, skyHorizon: 0x26375e, sun: 0x9fb2ee, sunIntensity: 1.4, hemiSky: 0x6078b5, hemiGround: 0x1f2838, hemiIntensity: 2, water: 0x3a6a92, fogNear: 30, fogFar: 170, night: 1 },
+      { hour: 0, skyTop: 0x0c1630, skyHorizon: 0x26375e, sun: 0x9fb2ee, sunIntensity: 1.1, hemiSky: 0x6078b5, hemiGround: 0x1f2838, hemiIntensity: 1.5, water: 0x3a6a92, fogNear: 30, fogFar: 170, night: 1 },
+      { hour: 4.5, skyTop: 0x101c3a, skyHorizon: 0x32406a, sun: 0x9fb2ee, sunIntensity: 1.05, hemiSky: 0x6078b5, hemiGround: 0x1f2838, hemiIntensity: 1.45, water: 0x3c6c94, fogNear: 25, fogFar: 150, night: 1 },
+      { hour: 6.5, skyTop: 0x7898cf, skyHorizon: 0xf5b88a, sun: 0xffb883, sunIntensity: 2.1, hemiSky: 0xb9c6ea, hemiGround: 0x6f6a52, hemiIntensity: 0.75, water: 0x5596b0, fogNear: 25, fogFar: 170, night: 0 },
+      { hour: 9, skyTop: 0x5c9fe2, skyHorizon: 0xdde6e8, sun: 0xfff0d8, sunIntensity: 3.1, hemiSky: 0xcfe4ff, hemiGround: 0x8a9a68, hemiIntensity: 0.78, water: 0x4f9fb3, fogNear: 60, fogFar: 290, night: 0 },
+      { hour: 14, skyTop: 0x4f98e0, skyHorizon: 0xcfe2ee, sun: 0xffffff, sunIntensity: 3.4, hemiSky: 0xcfe4ff, hemiGround: 0x8a9a66, hemiIntensity: 0.78, water: 0x4a9db3, fogNear: 70, fogFar: 320, night: 0 },
+      { hour: 17.5, skyTop: 0x6b97d6, skyHorizon: 0xf3d2a8, sun: 0xffd79a, sunIntensity: 2.9, hemiSky: 0xcfd8f2, hemiGround: 0x86905f, hemiIntensity: 0.74, water: 0x4a92aa, fogNear: 55, fogFar: 270, night: 0 },
+      { hour: 19.5, skyTop: 0x57649f, skyHorizon: 0xf2977a, sun: 0xff9460, sunIntensity: 2.2, hemiSky: 0xb3a3cb, hemiGround: 0x6a5a4a, hemiIntensity: 0.95, water: 0x5a8fae, fogNear: 40, fogFar: 200, night: 0.15 },
+      { hour: 21, skyTop: 0x1a2347, skyHorizon: 0x574a78, sun: 0x9fb2ee, sunIntensity: 1.0, hemiSky: 0x606fa8, hemiGround: 0x232a38, hemiIntensity: 1.35, water: 0x3a6690, fogNear: 30, fogFar: 175, night: 0.9 },
+      { hour: 24, skyTop: 0x0c1630, skyHorizon: 0x26375e, sun: 0x9fb2ee, sunIntensity: 1.1, hemiSky: 0x6078b5, hemiGround: 0x1f2838, hemiIntensity: 1.5, water: 0x3a6a92, fogNear: 30, fogFar: 170, night: 1 },
     ],
     /** Course du soleil : lever et coucher (heures), hauteur maximale (rad). */
     sunrise: 6,
@@ -542,7 +576,7 @@ export const CONFIG = {
      * être bas, mais l'éclairage reste assez haut pour que le lac ne paraisse
      * pas éteint à l'aube et au coucher.
      */
-    minLightElevation: 0.6,
+    minLightElevation: 0.42,
     /** Position fixe de la lune (rad) : angle autour de la verticale et hauteur. */
     moon: { azimuth: -1.1, elevation: 0.45 },
     /** Courbure du dégradé du ciel (petit = horizon plus haut). */
@@ -579,10 +613,10 @@ export const CONFIG = {
     /** Eau peu profonde : couleur du cycle jour/nuit mêlée à cette teinte, puis éclaircie. */
     shallowTint: 0x7fe3d2,
     shallowMix: 0.3,
-    shallowBrightness: 1.3,
-    deepBrightness: 0.75,
+    shallowBrightness: 1.6,
+    deepBrightness: 1.0,
     /** Reflet du ciel en regardant l'eau de biais (0 → 1). */
-    reflectivity: 0.5,
+    reflectivity: 0.75,
     roughness: 0.3,
   },
 

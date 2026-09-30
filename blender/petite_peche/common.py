@@ -10,6 +10,7 @@ import math
 import bmesh
 import bpy
 from mathutils import Matrix, Vector
+from mathutils.bvhtree import BVHTree
 
 COLOR_LAYER = "Col"
 
@@ -97,6 +98,28 @@ def emissive_material(name, base_hex, emission_hex, strength):
 
 # --- Construction de meshes -----------------------------------------------------------
 
+class Ground:
+    """
+    Hauteur du vrai maillage du terrain, pour y poser le décor. La grille
+    triangulée ne suit pas exactement le relief calculé (terrain_height) :
+    un arbre posé d'après le calcul peut flotter de quelques centimètres.
+    """
+
+    def __init__(self, terrain):
+        mesh = terrain.data
+        points = [terrain.matrix_world @ v.co for v in mesh.vertices]
+        self.tree = BVHTree.FromPolygons(points, [list(p.vertices) for p in mesh.polygons])
+
+    def height(self, x, y):
+        hit = self.tree.ray_cast(Vector((x, y, 1000.0)), Vector((0, 0, -1)))
+        return hit[0].z if hit[0] is not None else 0.0
+
+    def lowest_under(self, x, y, radius, samples=8):
+        """Point le plus bas du terrain sous un disque : un tronc ou un socle posé là touche le sol partout."""
+        around = [(x + math.cos(2 * math.pi * k / samples) * radius, y + math.sin(2 * math.pi * k / samples) * radius) for k in range(samples)]
+        return min(self.height(px, py) for px, py in [(x, y), *around])
+
+
 class MeshBuilder:
     """Accumule de la géométrie colorée (une couleur par face) dans un bmesh."""
 
@@ -135,9 +158,9 @@ class MeshBuilder:
         self.paint(self._faces_of(verts), color)
         return verts
 
-    def blob(self, location, radius, color, scale=(1.0, 1.0, 1.0), jitter=0.0, rng=None, subdivisions=1):
-        """Icosphère low poly, déformée pour un aspect naturel (rochers, feuillages)."""
-        matrix = Matrix.Translation(location) @ Matrix.Diagonal((*scale, 1.0))
+    def blob(self, location, radius, color, scale=(1.0, 1.0, 1.0), jitter=0.0, rng=None, subdivisions=1, rotation=None):
+        """Icosphère low poly, déformée pour un aspect naturel (rochers, feuillages), éventuellement tournée."""
+        matrix = Matrix.Translation(location) @ (rotation or Matrix.Identity(4)) @ Matrix.Diagonal((*scale, 1.0))
         verts = bmesh.ops.create_icosphere(self.bm, subdivisions=subdivisions, radius=radius, matrix=matrix)["verts"]
         if jitter and rng:
             for vert in verts:

@@ -25,6 +25,9 @@ HULL_SECTIONS = [
     (1.45, 0.47, 0.16, 0.43),
 ]
 MASK_HEIGHT = 0.345
+# Épaisseur de l'étrave et du tableau arrière : l'intérieur de la coque s'arrête
+# avant les faces extérieures (des faces superposées clignotent à l'écran)
+END_THICKNESS = 0.05
 PAINT = rgba(0x6aa9a8)
 STRIPE = rgba(0xefe6d2)
 ANTIFOULING = rgba(0xa6503e)
@@ -48,6 +51,23 @@ def hull_ring(y, width, depth, rim, inset=0.0):
     return [Vector((fx * w, y, z if z == rim else z + lift)) for fx, z in profile]
 
 
+def section_at(y):
+    """Section de la coque interpolée à l'ordonnée `y` : (demi-largeur, creux, plat-bord)."""
+    for (y0, *a), (y1, *b) in zip(HULL_SECTIONS, HULL_SECTIONS[1:]):
+        if y0 <= y <= y1:
+            t = (y - y0) / (y1 - y0)
+            return tuple(u + (v - u) * t for u, v in zip(a, b))
+    raise ValueError(f"y = {y} hors de la coque")
+
+
+def inner_rings():
+    """Sections de l'intérieur : les mêmes, sauf aux deux bouts, en retrait de l'épaisseur des planches."""
+    ys = [section[0] for section in HULL_SECTIONS]
+    ys[0] += END_THICKNESS
+    ys[-1] -= END_THICKNESS
+    return [hull_ring(y, *section_at(y), inset=0.08) for y in ys]
+
+
 def strake_color(index):
     """Couleur du bordé entre les points `index` et `index + 1` d'une section."""
     if index in (0, 7):
@@ -62,7 +82,7 @@ def build_boat():
     collection = scene.collection
     builder = MeshBuilder()
     outer = [hull_ring(*section) for section in HULL_SECTIONS]
-    inner = [hull_ring(*section, inset=0.08) for section in HULL_SECTIONS]
+    inner = inner_rings()
     build_shell(builder, outer, inner)
     build_fittings(builder)
     # Coque vue des deux côtés : matériau double face
@@ -90,7 +110,11 @@ def build_shell(builder, outer, inner):
 
 
 def close_end(builder, ring_outer, ring_inner, facing):
-    """Ferme une extrémité de la coque (tableau arrière ou étrave) : faces pleines + tranche."""
+    """
+    Ferme une extrémité de la coque (tableau arrière ou étrave) : face
+    extérieure, face intérieure (en retrait de END_THICKNESS) et tranche
+    entre les deux.
+    """
     back = Vector((0, ring_outer[0].y - facing, 0.1))
     oriented_quad(builder, list(ring_outer), rgba(0x8f5f3f), back)
     oriented_quad(builder, list(reversed(ring_inner)), WOOD_INSIDE[0], back + Vector((0, 2 * facing, 0)))
@@ -156,7 +180,8 @@ def build_rod():
     builder = MeshBuilder()
     along_y = Matrix.Rotation(math.pi / 2, 4, 'X')  # l'axe Z du cône devient -Y
     across = Matrix.Rotation(math.pi / 2, 4, 'Y')  # l'axe Z du cylindre devient X
-    blank_start, blank_end = 0.35, -ROD_LENGTH
+    # Le scion s'arrête dans le manche (fin à 0.35) : leurs bouts ne sont pas dans le même plan
+    blank_start, blank_end = 0.34, -ROD_LENGTH
     builder.cone((0, (blank_start + blank_end) / 2, 0), 0.022, 0.006, blank_start - blank_end, 8, rgba(0x3f5f4a), rotation=along_y)
     builder.cone((0, 0.115, 0), 0.032, 0.03, 0.47, 8, rgba(0xc9a57a), rotation=along_y)
     builder.cone((0, 0.37, 0), 0.028, 0.028, 0.04, 8, rgba(0x2b2b2b), rotation=along_y)

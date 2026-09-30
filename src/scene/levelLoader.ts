@@ -110,6 +110,7 @@ export async function loadLevel(path: string = CONFIG.assets.level): Promise<Lev
 export function parseLevel(root: Object3D, source: LevelData['source']): LevelData {
   root.updateMatrixWorld(true);
   const found = classify(root);
+  setupShadows(found.decor);
   const water = readWater(root, found.water);
   const spawn = readSpawn(found.spawn, water);
   return {
@@ -126,6 +127,21 @@ export function parseLevel(root: Object3D, source: LevelData['source']): LevelDa
     flow: readFlow(found.flow),
     sway: found.decor.filter((object) => blenderName(object).endsWith('_sway')),
   };
+}
+
+/**
+ * Ombres du décor : tout le décor les reçoit ; tout sauf le terrain en
+ * projette (le relief est doux, et c'est la plus grande surface à dessiner).
+ */
+function setupShadows(decor: readonly Object3D[]): void {
+  for (const object of decor) {
+    const ground = blenderName(object).startsWith('deco_terrain');
+    object.traverse((child) => {
+      if (!(child instanceof Mesh)) return;
+      child.receiveShadow = true;
+      child.castShadow = !ground;
+    });
+  }
 }
 
 /**

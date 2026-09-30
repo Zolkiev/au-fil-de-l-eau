@@ -2,13 +2,19 @@ import { DirectionalLight, HemisphereLight, Vector3, type Scene } from 'three';
 import { CONFIG } from '../config';
 import type { Ambience } from './dayNight';
 
-/** Distance de la lumière à la barque (elle est directionnelle, seule la direction compte). */
-const SUN_DISTANCE = 40;
+/** Distance de la lumière au centre de la zone d'ombre (elle est directionnelle, seule la direction compte). */
+const SUN_DISTANCE = 80;
+
+const _right = new Vector3();
+const _up = new Vector3();
+const _snapped = new Vector3();
+const WORLD_UP = new Vector3(0, 1, 0);
 
 /**
  * Lumière douce du ciel + lumière principale (soleil le jour, lune la nuit),
- * pilotées par le cycle jour/nuit. Seule la barque projette une ombre : la
- * zone d'ombre, petite et nette, la suit.
+ * pilotées par le cycle jour/nuit. La zone d'ombre (CONFIG.render.shadowArea)
+ * suit la barque : la barque et le décor proche (arbres, rochers, ponton…) y
+ * projettent leur ombre.
  */
 export class Lighting {
   readonly sun = new DirectionalLight();
@@ -31,20 +37,48 @@ export class Lighting {
     this.direction.copy(ambience.lightDirection);
   }
 
-  /** Recentre la lumière (et donc la zone d'ombre) sur `focus`. */
+  /** Taille de la carte d'ombre (px) ; la carte est recréée au prochain rendu. */
+  setShadowMapSize(size: number): void {
+    const shadow = this.sun.shadow;
+    if (shadow.mapSize.x === size) return;
+    shadow.mapSize.set(size, size);
+    shadow.map?.dispose();
+    shadow.map = null;
+  }
+
+  /**
+   * Recentre la lumière (et donc la zone d'ombre) sur `focus`. Le centre
+   * avance par pas d'un texel de la carte d'ombre : sinon les bords des
+   * ombres scintillent dès que la barque bouge.
+   */
   follow(focus: Vector3): void {
-    this.sun.target.position.copy(focus);
-    this.sun.position.copy(focus).addScaledVector(this.direction, SUN_DISTANCE);
+    snapToShadowTexels(focus, this.direction, this.sun.shadow.mapSize.x, _snapped);
+    this.sun.target.position.copy(_snapped);
+    this.sun.position.copy(_snapped).addScaledVector(this.direction, SUN_DISTANCE);
   }
 }
 
+/** `focus` arrondi à la grille des texels, dans le plan vu depuis la lumière. */
+function snapToShadowTexels(focus: Vector3, direction: Vector3, mapSize: number, out: Vector3): Vector3 {
+  const texel = (2 * CONFIG.render.shadowArea) / mapSize;
+  _right.crossVectors(WORLD_UP, direction);
+  if (_right.lengthSq() < 1e-6) _right.set(1, 0, 0);
+  _right.normalize();
+  _up.crossVectors(direction, _right).normalize();
+  const x = Math.round(focus.dot(_right) / texel) * texel;
+  const y = Math.round(focus.dot(_up) / texel) * texel;
+  const depth = focus.dot(direction);
+  return out.copy(_right).multiplyScalar(x).addScaledVector(_up, y).addScaledVector(direction, depth);
+}
+
 function configureShadow(sun: DirectionalLight): void {
-  const { shadowMapSize, shadowArea, shadowRadius, shadowBias } = CONFIG.render;
+  const { shadowMapSize, shadowArea, shadowRadius, shadowBias, shadowNormalBias } = CONFIG.render;
   const camera = sun.shadow.camera;
   sun.castShadow = true;
   sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
   sun.shadow.radius = shadowRadius;
   sun.shadow.bias = shadowBias;
+  sun.shadow.normalBias = shadowNormalBias;
   camera.left = -shadowArea;
   camera.right = shadowArea;
   camera.top = shadowArea;

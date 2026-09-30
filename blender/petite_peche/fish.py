@@ -14,7 +14,7 @@ import math
 import random
 
 import bpy
-from mathutils import Quaternion, Vector
+from mathutils import Matrix, Quaternion, Vector
 
 from .common import MeshBuilder, new_scene, palette_material, rgba
 
@@ -232,6 +232,9 @@ def build_side_fins(builder, spec, colors):
                          Vector((side * width * 0.4, body_y(0.5), -0.8 * height))], colors["fins"])
 
 
+PUPIL_TURN = Matrix.Rotation(0.5, 4, 'Z') @ Matrix.Rotation(0.35, 4, 'X')
+
+
 def build_eyes(builder, spec, colors):
     """Œil = iris coloré + pupille noire, un peu en saillie de chaque côté de la tête."""
     height, width = section_size(spec, 0.1)
@@ -239,7 +242,9 @@ def build_eyes(builder, spec, colors):
     for side in (-1, 1):
         center = Vector((side * width * 0.85, body_y(0.1), 0.25 * height))
         builder.blob(center, radius, colors["iris"], subdivisions=1)
-        builder.blob(center + Vector((side * radius * 0.45, -radius * 0.1, 0)), radius * 0.6, rgba(0x1d2126), subdivisions=1)
+        # Pupille tournée par rapport à l'iris : leurs facettes ne sont jamais parallèles (sinon elles clignotent)
+        builder.blob(center + Vector((side * radius * 0.45, -radius * 0.1, 0)), radius * 0.6, rgba(0x1d2126), subdivisions=1,
+                     rotation=PUPIL_TURN)
 
 
 def build_barbels(builder, spec, length, height_factor, colors):
