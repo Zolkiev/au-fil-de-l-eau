@@ -135,7 +135,8 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   - le jeu est une PWA : installable, jouable hors connexion, mises à jour
     proposées depuis le menu ;
   - polish visuel (en cours) : assets corrigés (faces qui clignotaient,
-    décor qui flottait), éclairage revu, ombres du décor, nuages.
+    décor qui flottait), éclairage revu, ombres du décor, nuages, lumières
+    de nuit (lanternes, fenêtres, faisceau du phare).
 
   Voir `docs/PROGRESS.md`. En attente du test de l'utilisateur.
 - Dépôt git **public** : https://github.com/Zolkiev/au-fil-de-l-eau (branche
@@ -185,9 +186,13 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   `Clock` est déprécié ; la boucle utilise `performance.now()`.
 - Ombres : la zone d'ombre (`CONFIG.render.shadowArea`, 64 m de côté) suit
   la barque. Tout le décor les reçoit et, sauf le terrain, en projette
-  (`setupShadows` dans `levelLoader.ts`) ; la barque et le chat aussi. Le
-  centre de la zone avance par pas d'un texel (`Lighting.follow`), sinon les
-  bords scintillent. Carte de 2048 px, 1024 en définition « Économe ».
+  (`setupShadows` dans `levelLoader.ts`). La barque et le chat en
+  projettent sans en recevoir : sur leurs faces presque parallèles au
+  soleil, la carte (peu précise à cette échelle) dessinait des rayures qui
+  clignotaient (« acné »). Le décalage anti-acné (`normalBias`) vaut un
+  nombre de texels, donc suit la taille de la carte. Le centre de la zone
+  avance par pas d'un texel (`Lighting.follow`), sinon les bords
+  scintillent. Carte de 2048 px, 1024 en définition « Économe ».
   (Écart assumé avec la spec d'origine, « ombres uniquement sur la barque ».)
 - Rendu des couleurs : tone mapping « Neutral » par défaut
   (`CONFIG.render.toneMapping`, 'aces' possible) ; le ciel (ShaderMaterial)
@@ -411,3 +416,11 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   `petite-peche` (clés de sauvegarde et de voyage, cache du service worker,
   nom du paquet npm, fichiers Blender) : ne pas les renommer, sinon les
   parties en cours seraient perdues.
+- Lumières de nuit : `NightLights` (`src/scene/nightLights.ts`) trouve les
+  meshes émissifs du décor (lanternes, fenêtres, lanterne du phare), règle
+  leur éclat selon `night`, leur ajoute un halo (sprite additif) et, pour
+  les `CONFIG.nightLights.maxLights` premiers, une `PointLight` (toujours
+  présente, intensité 0 le jour : pas de recompilation des shaders). L'Empty
+  `beacon` (`LevelData.beacon`) porte le faisceau tournant d'un phare (cônes
+  additifs dont la couleur des sommets s'éteint avec la distance).
+

@@ -347,6 +347,22 @@ export const CONFIG = {
   /** Durée du fondu avant de recharger la page pour changer de lieu (ms). */
   travelDelayMs: 900,
 
+  /** Lumières de nuit du décor : lanternes, fenêtres, phare (src/scene/nightLights.ts). */
+  nightLights: {
+    /** Éclat des objets émissifs le jour, puis la nuit (× leur intensité dans Blender). */
+    dayGlow: 0.15,
+    nightGlow: 1.6,
+    /** Halo : taille (× la plus grande dimension de l'objet), plafonnée (m), et opacité la nuit. */
+    haloScale: 5,
+    haloMax: 6,
+    haloOpacity: 0.55,
+    /** Lumière chaude autour des premiers objets émissifs (lanternes, fenêtres). */
+    light: { color: 0xffc27a, intensity: 5, distance: 10 },
+    maxLights: 3,
+    /** Faisceau du phare : longueur et rayon au bout (m), rotation (rad/s), inclinaison vers le bas (rad). */
+    beacon: { color: 0xfff1c0, length: 70, radius: 6, speed: 0.5, tilt: 0.06, opacity: 0.2 },
+  },
+
   /** Nuages qui dérivent dans le ciel (src/scene/clouds.ts). */
   clouds: {
     count: 22,
@@ -545,8 +561,12 @@ export const CONFIG = {
     /** Demi-côté (m) de la zone d'ombre qui suit la barque : le décor proche y projette son ombre. */
     shadowArea: 32,
     shadowBias: -0.0003,
-    /** Décalage le long des normales (m) : évite l'« acné » des ombres sur les pentes. */
-    shadowNormalBias: 0.04,
+    /**
+     * Décalage le long des normales, en texels de la carte d'ombre (donc plus
+     * grand quand elle est moins fine) : évite l'« acné », ces rayures qui
+     * clignotent sur les faces presque parallèles au soleil.
+     */
+    shadowNormalBias: 1.5,
   },
 
   /**

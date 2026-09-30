@@ -11,8 +11,9 @@ const CREAM = 0xf6e3c6;
 export async function loadCatModel(): Promise<Object3D> {
   const gltf = await loadGLB(CONFIG.assets.cat, 'Moustache (chat)');
   const model = gltf?.scene ?? createPlaceholderCat();
+  // Il projette son ombre sur le ponton, sans en recevoir (pas d'« acné » d'ombre sur ses facettes)
   model.traverse((child) => {
-    if (child instanceof Mesh) child.castShadow = child.receiveShadow = true;
+    if (child instanceof Mesh) child.castShadow = true;
   });
   return model;
 }

@@ -14,7 +14,7 @@ import random
 from mathutils import Matrix, Vector
 
 from .common import Ground, MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
-from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree, tree_base
+from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree, lamp_post, tree_base
 
 SCENE_NAME = "river_01"
 
@@ -240,6 +240,8 @@ def build_bridge(collection, material):
                 builder.box((BRIDGE_X + side * 1.1, y0, z0 + 0.45), (0.12, 0.12, 0.9), WOOD_DARK)
     for y in (start, end):
         builder.box((BRIDGE_X, y, BRIDGE_END - 0.6), (3.2, 1.8, 1.4), rgba(0x9b9d97))
+        # Lanterne sur chaque culée, côté aval (-X), face à la barque
+        lamp_post(builder, collection, "deco_bridge_lamp", BRIDGE_X - 1.4, y, BRIDGE_END + 0.1)
     builder.to_object("deco_bridge", material, collection)
 
 

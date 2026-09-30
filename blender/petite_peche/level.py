@@ -11,7 +11,7 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import (Ground, MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene,
+from .common import (Ground, emissive_material, emissive_object, MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene,
                      oriented_quad, palette_material, rgba, smoothstep)
 
 SCENE_NAME = "lake_01"
@@ -167,6 +167,29 @@ def build_reeds(collection, material, rng):
     return centers
 
 
+def lamp_glass_material():
+    """Verre des lanternes : ambré le jour, lueur chaude la nuit (le jeu règle l'intensité)."""
+    return emissive_material("LampGlass", 0xfff0c8, 0xffb35c, 1.0)
+
+
+def window_material():
+    """Vitre des cabanes : gris-bleu le jour, éclairée de l'intérieur la nuit."""
+    return emissive_material("WindowGlow", 0x8fa9b4, 0xffc27a, 1.0)
+
+
+def lamp_post(builder, collection, name, x, y, base, height=1.5):
+    """
+    Poteau de bois surmonté d'une lanterne. Le poteau et le petit toit vont
+    dans `builder` (le ponton, le quai…) ; le verre est un objet émissif à
+    part (`name`), qui s'allume la nuit.
+    """
+    builder.box((x, y, base + height / 2), (0.1, 0.1, height), WOOD_DARK)
+    builder.box((x, y, base + height + 0.3), (0.26, 0.26, 0.04), WOOD_DARK)
+    glass = MeshBuilder()
+    glass.box((x, y, base + height + 0.13), (0.18, 0.18, 0.28), rgba(0xfff0c8))
+    return emissive_object(glass, name, lamp_glass_material(), collection)
+
+
 def build_jetty(collection, material, south):
     """Ponton en bois qui s'avance dans l'eau, au sud, près du départ de la barque."""
     builder = MeshBuilder()
@@ -183,6 +206,8 @@ def build_jetty(collection, material, south):
             bottom = terrain_height(x + side, y) - 0.3
             builder.box((x + side, y, (0.55 + bottom) / 2), (0.14, 0.14, 0.55 - bottom), WOOD_DARK)
         y += 1.8
+    # Lanterne au bout du ponton, du côté du départ de la barque (Moustache est au milieu)
+    lamp_post(builder, collection, "deco_jetty_lamp", x - 0.85, end - 0.3, 0.58)
     builder.to_object("deco_jetty", material, collection)
     return Vector((x, (start + end) / 2))
 
@@ -254,6 +279,10 @@ def build_cabin(collection, material, position):
     builder.box((x + 0.9, y - 1.62, z + 1.4), (0.9, 0.06, 0.7), rgba(0xcfe3ea))
     builder.box((x + 1.2, y + 0.8, z + 3.4), (0.4, 0.4, 1.2), rgba(0x8a8a84))
     builder.to_object("deco_cabin", material, collection)
+    # Fenêtre côté lac : allumée la nuit
+    window = MeshBuilder()
+    window.box((x - 0.7, y + 1.62, z + 1.4), (0.9, 0.06, 0.7), rgba(0x8fa9b4))
+    emissive_object(window, "deco_cabin_window", window_material(), collection)
 
 
 def build_trees(collection, material, rng, ground, avoid):

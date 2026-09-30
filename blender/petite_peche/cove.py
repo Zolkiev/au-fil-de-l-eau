@@ -12,8 +12,8 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import Ground, MeshBuilder, circle_points, emissive_material, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
-from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree, tree_base
+from .common import Ground, MeshBuilder, circle_points, emissive_object, emissive_material, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
+from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree, lamp_post, tree_base, window_material
 
 SCENE_NAME = "cove_01"
 
@@ -91,7 +91,7 @@ def build():
     build_water(groups["Eau"], material)
     rocks = build_rocks(groups["Decor"], material, rng)
     build_seagrass(groups["Decor"], material, rng)
-    build_lighthouse(groups["Decor"], material, ground)
+    build_lighthouse(groups["Decor"], groups["Reperes"], material, ground)
     build_pier(groups["Decor"], material)
     build_hut_and_driftwood(groups["Decor"], material)
     build_buoys(groups["Decor"], material)
@@ -164,7 +164,7 @@ def build_seagrass(collection, material, rng):
     builder.to_object("deco_seagrass_sway", material, collection)
 
 
-def build_lighthouse(collection, material, ground):
+def build_lighthouse(collection, markers, material, ground):
     """Vieux phare rayé rouge et blanc sur le cap ouest ; sa lanterne brille (objet émissif à part)."""
     builder = MeshBuilder()
     x, y = LIGHTHOUSE_X, coast(LIGHTHOUSE_X) - 6
@@ -182,8 +182,9 @@ def build_lighthouse(collection, material, ground):
     builder.to_object("deco_lighthouse", material, collection)
     glass = MeshBuilder()
     glass.cone((x, y, top + 0.75), 0.8, 0.8, 1.2, 10, rgba(0xfff1c0))
-    lamp = glass.to_object("deco_lighthouse_lamp", emissive_material("LighthouseGlass", 0xfff1c0, 0xffd27a, 2.0), collection)
-    lamp.data.color_attributes.remove(lamp.data.color_attributes["Col"])
+    emissive_object(glass, "deco_lighthouse_lamp", emissive_material("LighthouseGlass", 0xfff1c0, 0xffd27a, 2.0), collection)
+    # Repère du faisceau tournant, au centre de la lanterne
+    empty("beacon", markers, location=(x, y, top + 0.75), display='SPHERE', size=0.5)
 
 
 def pier_span():
@@ -206,6 +207,8 @@ def build_pier(collection, material):
             bottom = terrain_height(PIER_X + side, y) - 0.3
             builder.box((PIER_X + side, y, (0.85 + bottom) / 2), (0.14, 0.14, 0.85 - bottom), WOOD_DARK)
         y += 1.8
+    # Lanterne au bout du quai, sur le côté (Moustache est au milieu)
+    lamp_post(builder, collection, "deco_pier_lamp", PIER_X - 0.8, end - 0.3, 0.88)
     builder.to_object("deco_pier", material, collection)
 
 
@@ -219,6 +222,10 @@ def build_hut_and_driftwood(collection, material):
         # Pans de longueurs un peu différentes : leurs bouts ne sont pas dans le même plan (sinon ils clignotent au faîtage)
         builder.box((x + side * 0.85, y, z + 2.6), (2.0, 3.0 if side < 0 else 3.04, 0.12), WHITE, rotation=Matrix.Rotation(side * 0.5, 4, 'Y'))
     builder.box((x, y + 1.32, z + 0.9), (0.8, 0.06, 1.7), WOOD_DARK)
+    # Fenêtre côté mer, à droite de la porte : allumée la nuit
+    window = MeshBuilder()
+    window.box((x + 0.95, y + 1.32, z + 1.25), (0.7, 0.06, 0.5), rgba(0x8fa9b4))
+    emissive_object(window, "deco_hut_window", window_material(), collection)
     for dx, dy, angle, length in [(4, -4, 0.3, 2.4), (-10, -5, -0.6, 1.8), (16, -6, 1.2, 2.0)]:
         px, py = x + dx, coast(x + dx) + dy
         lying = Matrix.Rotation(angle, 4, 'Z') @ Matrix.Rotation(math.pi / 2, 4, 'Y')

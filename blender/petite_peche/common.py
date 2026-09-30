@@ -98,6 +98,17 @@ def emissive_material(name, base_hex, emission_hex, strength):
 
 # --- Construction de meshes -----------------------------------------------------------
 
+def emissive_object(builder, name, material, collection, parent=None):
+    """
+    Objet à matériau émissif (verre de lanterne, fenêtre) : dans le jeu, il
+    s'allume la nuit, avec un halo et une lumière chaude. Pas de couleurs de
+    sommets (inutiles, et avertissement à l'export).
+    """
+    obj = builder.to_object(name, material, collection, parent=parent)
+    obj.data.color_attributes.remove(obj.data.color_attributes[COLOR_LAYER])
+    return obj
+
+
 class Ground:
     """
     Hauteur du vrai maillage du terrain, pour y poser le décor. La grille

@@ -18,8 +18,55 @@
 | + | Troisième lieu : la crique (6 espèces marines) | ✅ Livré le 2026-09-30, **à tester** |
 | + | Application installable (PWA) et jeu hors connexion | ✅ Livré le 2026-09-30, **à tester** |
 | + | Polish visuel (1) : assets corrigés, éclairage, ombres du décor, nuages | ✅ Livré le 2026-09-30, **à tester** |
+| + | Polish visuel (2) : lumières de nuit, correction de l'acné d'ombre | ✅ Livré le 2026-09-30, **à tester** |
 
 ---
+
+## Polish visuel (2) : lumières de nuit, acné d'ombre
+
+### Livré
+
+- **Rayures qui clignotaient à l'arrière de la barque** (vues sur iPhone) :
+  ce n'était plus des faces superposées, mais de l'« acné » d'ombre, apparue
+  avec la grande zone d'ombre de la version précédente. La barque se faisait
+  de l'ombre à elle-même par bandes sur le tableau arrière, presque parallèle
+  au soleil. La barque et Moustache projettent maintenant leur ombre sans en
+  recevoir, et le décalage anti-acné suit la précision de la carte d'ombre
+  (plus grand en définition « Économe »).
+- **Lumières de nuit** (`src/scene/nightLights.ts`) :
+  - tout objet de décor à matériau émissif s'allume avec la nuit, avec un
+    halo ; les premiers ont aussi une vraie lumière chaude, qui éclaire les
+    alentours et se reflète sur l'eau ;
+  - nouveaux assets : lanterne au bout du ponton du lac, fenêtre de la
+    cabane côté lac, lanterne au bout du quai et fenêtre de la cabane de
+    plage à la crique, lanternes sur les deux culées du pont de la
+    rivière ;
+  - le phare de la crique balaie la nuit de deux faisceaux tournants
+    (Empty `beacon`).
+  
+  Réglages : `CONFIG.nightLights`.
+- L'outil de contrôle des assets accepte un élément accroché à un autre
+  (fenêtre contre un mur) ; toujours rien à signaler.
+
+### Vérifications déjà faites
+
+- Vue de la vidéo reproduite (téléphone, carte d'ombre de 1024 px) à 10 h,
+  17 h et 18 h 48, barque tournée pour un soleil rasant : tableau arrière
+  uni, plus de rayures.
+- Captures de nuit : cabane et ponton du lac (fenêtre, lanterne, reflets),
+  phare de la crique (lanterne, halo, faisceaux), cabane de plage et quai,
+  lanternes du pont de la rivière.
+
+### Comment tester
+
+- Joue la nuit (touche T pour avancer l'heure) près du ponton, du quai, du
+  pont ; à la crique, regarde le phare.
+
+### Limites connues
+
+- Les lumières des lanternes ne projettent pas d'ombre.
+- Au plus 3 lumières réelles par lieu (plus la lanterne de la barque) ; les
+  autres objets n'ont que leur halo.
 
 ## Polish visuel (1) : assets, éclairage, ombres, nuages
 

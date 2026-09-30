@@ -18,6 +18,7 @@ import { currentBoosts } from '../progression/rendezvous';
 import type { Pwa } from '../pwa/pwa';
 import { Cat, loadCatModel } from '../scene/cat';
 import { Clouds } from '../scene/clouds';
+import { NightLights } from '../scene/nightLights';
 import { DayNight } from '../scene/dayNight';
 import { Decor } from '../scene/decor';
 import { DriftingLeaves } from '../scene/driftingLeaves';
@@ -109,6 +110,7 @@ export class Game {
   private readonly windSway: WindSway;
   private readonly critters: Critters;
   private readonly clouds = new Clouds();
+  private readonly nightLights: NightLights;
   private readonly fsm = new StateMachine<GameState>('jeu', 'title', GAME_TRANSITIONS);
   private readonly scene = new Scene();
   private readonly clock = new GameClock();
@@ -198,7 +200,8 @@ export class Game {
     const sea = placeById(this.place).sea;
     this.critters = new Critters(level, sea?.birdColor);
     this.applySeaLook();
-    this.scene.add(this.weatherEffects.group, this.fishSigns.group, this.critters.group, this.clouds.group);
+    this.nightLights = new NightLights(level);
+    this.scene.add(this.weatherEffects.group, this.fishSigns.group, this.critters.group, this.clouds.group, this.nightLights.group);
     this.cat = level.cat ? new Cat(assets.catModel, level.cat) : null;
     if (this.cat) this.scene.add(this.cat.root);
     this.fishingHud = new FishingHud(hud.layer, {
@@ -553,6 +556,7 @@ export class Game {
     setWaterTime(elapsed);
     this.boat.animate(dt, elapsed);
     const night = this.applyAmbience();
+    this.nightLights.update(dt, night);
     this.fireflies.update(elapsed, this.boat.position, this.level.water.level, night);
     this.rig.update(dt, this.boat, this.fishing.focusPoint);
     this.cat?.update(elapsed);

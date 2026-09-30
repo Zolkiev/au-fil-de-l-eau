@@ -94,9 +94,11 @@ export interface LevelData {
   readonly flow: Vector2;
   /** Décor qui ondule au vent : les objets `deco_*` dont le nom finit par `_sway` (arbres, roseaux). */
   readonly sway: readonly Object3D[];
+  /** Centre du faisceau tournant d'un phare, la nuit (Empty `beacon`) ; null s'il est absent. */
+  readonly beacon: Vector3 | null;
 }
 
-type Role = 'spawn' | 'camera' | 'water' | 'zone' | 'collider' | 'decor' | 'cat' | 'pen' | 'penCamera' | 'flow';
+type Role = 'spawn' | 'camera' | 'water' | 'zone' | 'collider' | 'decor' | 'cat' | 'pen' | 'penCamera' | 'flow' | 'beacon';
 type ZoneBase = Pick<FishingZone, 'name' | 'type' | 'index' | 'object'>;
 
 /** Charge le niveau .glb, ou le niveau placeholder s'il est absent. */
@@ -126,6 +128,7 @@ export function parseLevel(root: Object3D, source: LevelData['source']): LevelDa
     pen: readPen(found.pen, found.penCamera),
     flow: readFlow(found.flow),
     sway: found.decor.filter((object) => blenderName(object).endsWith('_sway')),
+    beacon: pickOne(found.beacon, 'beacon')?.getWorldPosition(new Vector3()) ?? null,
   };
 }
 
@@ -165,6 +168,7 @@ function roleOf(name: string): Role | null {
   if (name === 'fish_pen') return 'pen';
   if (name === 'cam_fish_pen') return 'penCamera';
   if (name === 'water_flow') return 'flow';
+  if (name === 'beacon') return 'beacon';
   if (name === 'water') return 'water';
   if (name.startsWith('zone_')) return 'zone';
   if (name.endsWith('_col')) return 'collider';
@@ -174,7 +178,7 @@ function roleOf(name: string): Role | null {
 
 /** Range les objets par rôle. On ne descend pas dans un objet déjà reconnu. */
 function classify(root: Object3D): Record<Role, Object3D[]> {
-  const found: Record<Role, Object3D[]> = { spawn: [], camera: [], water: [], zone: [], collider: [], decor: [], cat: [], pen: [], penCamera: [], flow: [] };
+  const found: Record<Role, Object3D[]> = { spawn: [], camera: [], water: [], zone: [], collider: [], decor: [], cat: [], pen: [], penCamera: [], flow: [], beacon: [] };
   const unknown: string[] = [];
   const visit = (object: Object3D): void => {
     const role = roleOf(blenderName(object));

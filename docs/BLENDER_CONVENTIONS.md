@@ -66,10 +66,16 @@ retouche les couleurs dans les générateurs. Pour voir ces couleurs dans la
 vue 3D : *Viewport Shading* › *Color* › *Attribute*.
 
 Un objet de décor peut aussi avoir son propre matériau, exporté tel quel.
-Par exemple, la lampe du phare de la crique (`deco_lighthouse_lamp`) a un
-matériau émissif, « LighthouseGlass », et pas d'attribut « Col » : elle
-brille de jour comme de nuit. Une émission non noire suffit pour qu'un objet
-brille ; seule la lanterne de la barque s'allume et s'éteint avec la nuit.
+**Tout objet de décor à matériau émissif** (couleur d'émission non noire)
+**s'allume la nuit** : à peine lumineux le jour, il brille la nuit, avec un
+halo et, pour les premiers, une vraie lumière chaude qui éclaire les
+alentours et se reflète sur l'eau. C'est le cas des lanternes
+(`deco_jetty_lamp`, `deco_pier_lamp`, `deco_bridge_lamp`, matériau
+« LampGlass »), des fenêtres des cabanes (`deco_cabin_window`,
+`deco_hut_window`, « WindowGlow ») et de la lanterne du phare
+(`deco_lighthouse_lamp`, « LighthouseGlass »). Fais-en un objet à part (pas
+dans le même mesh qu'un mur), sans attribut « Col ». Dans les générateurs :
+`emissive_object()` et `lamp_post()`.
 
 ## Réglages d'export
 
@@ -109,6 +115,7 @@ brille ; seule la lanterne de la barque s'allume et s'éteint avec la nuit.
 | `water_flow` | Empty (facultatif) | Courant d'une rivière : l'Empty pointe vers l'**aval** (son avant, -Y, comme la barque ; une flèche « Single Arrow » tournée dans le sens du courant) et son **échelle** donne la vitesse en m/s (0,6 pour la rivière). Les vagues et l'écume sont emportées, des feuilles dérivent et on entend l'eau vive. Sans lui, l'eau est calme (lac). |
 | `fish_pen` | Empty « Circle » (facultatif) | Vivier : centre de la **surface de l'eau** du bac, rayon = échelle (couché à plat comme une zone, rotation X 90°). Le jeu y ajoute une eau transparente et les poissons gardés. Le bac lui-même est un objet de décor (`deco_fish_pen`), ouvert en haut. Sans `fish_pen`, les poissons gardés restent seulement listés au ponton. |
 | `cam_fish_pen` | Empty (facultatif) | Point de vue de la vue rapprochée du vivier (la caméra regarde le centre du bac). Sans lui, elle se place en retrait côté terre (`CONFIG.pen.viewDistance`, `viewHeight`). |
+| `beacon` | Empty (facultatif) | Centre du **faisceau tournant d'un phare** : la nuit, deux faisceaux de lumière en partent et balaient le paysage (la crique en a un, au centre de la lanterne du phare). |
 | `npc_cat` | Empty (facultatif) | Où s'assoit Moustache, le chat des demandes : position exacte (sur le ponton, la berge…) et rotation autour de Z (son regard suit -Y, comme la barque). Sans lui, Moustache n'apparaît pas dans le décor, mais ses demandes restent accessibles par le bouton 🐈. |
 | autre | — | Rendu tel quel, et listé dans la console (message d'info) pour repérer les fautes de frappe. |
 

@@ -5,10 +5,11 @@
    Deux faces qui regardent dans le même sens posent toujours problème ; dos à
    dos, seulement si le matériau est visible des deux côtés.
 2. Décor qui flotte : chaque élément du décor (arbre, rocher, planche…) doit
-   être soutenu en son milieu (par le sol, un autre élément ou l'eau). S'il
-   est posé sur le sol, il doit le toucher tout autour de sa base : un tronc
-   en pente ne doit pas laisser de vide côté aval. Posé sur un autre élément,
-   il peut déborder (toit du phare au-dessus de sa lanterne).
+   être soutenu en son milieu (par le sol, un autre élément ou l'eau), ou
+   accroché à un autre élément (fenêtre contre un mur). S'il est posé sur le
+   sol, il doit le toucher tout autour de sa base : un tronc en pente ne doit
+   pas laisser de vide côté aval. Posé sur un autre élément, il peut déborder
+   (toit du phare au-dessus de sa lanterne).
 
 Ignorés : collisions (*_col), zones, water, water_mask (invisibles ou
 remplacés par le jeu).
@@ -33,6 +34,8 @@ SHRINK = 0.02
 CELL = 1.0
 # Un élément du décor flotte s'il est à plus de 3 cm au-dessus de ce qu'il y a dessous
 FLOAT_GAP = 0.03
+# … sauf s'il est accroché à un autre élément (à moins de 3 cm de sa surface)
+ATTACH_GAP = 0.03
 
 
 def is_checked(obj):
@@ -234,6 +237,15 @@ def floating_pieces(scene):
     return problems
 
 
+def is_attached(points, others):
+    """L'élément touche-t-il un autre élément (fenêtre contre un mur, lanterne sur un poteau) ?"""
+    for point in points:
+        nearest = others.find_nearest(point)
+        if nearest[0] is not None and nearest[3] <= ATTACH_GAP:
+            return True
+    return False
+
+
 def support_problem(points, others, terrain, level):
     """Décrit le défaut d'appui d'un élément, ou None s'il est bien posé."""
     lowest_z = min(p.z for p in points)
@@ -243,6 +255,8 @@ def support_problem(points, others, terrain, level):
     middle = sum(base, Vector()) / len(base)
     gap = ground_gap(others, middle) if others else None
     if gap is None or gap > FLOAT_GAP:
+        if others and is_attached(points, others):
+            return None
         return {"où": tuple(round(c, 2) for c in middle), "écart": None if gap is None else round(gap, 2)}
     # Posé sur le sol (et pas sur un autre élément) : il doit le toucher tout autour de sa base
     on_terrain = terrain is not None and ground_gap(terrain, middle) == gap

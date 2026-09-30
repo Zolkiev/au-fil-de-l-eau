@@ -42,6 +42,7 @@ export class Lighting {
     const shadow = this.sun.shadow;
     if (shadow.mapSize.x === size) return;
     shadow.mapSize.set(size, size);
+    shadow.normalBias = normalBiasFor(size);
     shadow.map?.dispose();
     shadow.map = null;
   }
@@ -58,9 +59,19 @@ export class Lighting {
   }
 }
 
+/** Taille (m) d'un texel de la carte d'ombre. */
+function texelSize(mapSize: number): number {
+  return (2 * CONFIG.render.shadowArea) / mapSize;
+}
+
+/** Décalage anti-acné (m) : un nombre fixe de texels, donc plus grand pour une carte moins fine. */
+function normalBiasFor(mapSize: number): number {
+  return CONFIG.render.shadowNormalBias * texelSize(mapSize);
+}
+
 /** `focus` arrondi à la grille des texels, dans le plan vu depuis la lumière. */
 function snapToShadowTexels(focus: Vector3, direction: Vector3, mapSize: number, out: Vector3): Vector3 {
-  const texel = (2 * CONFIG.render.shadowArea) / mapSize;
+  const texel = texelSize(mapSize);
   _right.crossVectors(WORLD_UP, direction);
   if (_right.lengthSq() < 1e-6) _right.set(1, 0, 0);
   _right.normalize();
@@ -72,13 +83,13 @@ function snapToShadowTexels(focus: Vector3, direction: Vector3, mapSize: number,
 }
 
 function configureShadow(sun: DirectionalLight): void {
-  const { shadowMapSize, shadowArea, shadowRadius, shadowBias, shadowNormalBias } = CONFIG.render;
+  const { shadowMapSize, shadowArea, shadowRadius, shadowBias } = CONFIG.render;
   const camera = sun.shadow.camera;
   sun.castShadow = true;
   sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
   sun.shadow.radius = shadowRadius;
   sun.shadow.bias = shadowBias;
-  sun.shadow.normalBias = shadowNormalBias;
+  sun.shadow.normalBias = normalBiasFor(shadowMapSize);
   camera.left = -shadowArea;
   camera.right = shadowArea;
   camera.top = shadowArea;
