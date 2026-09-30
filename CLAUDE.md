@@ -138,7 +138,10 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
     décor qui flottait), éclairage revu, ombres du décor, nuages, lumières
     de nuit (lanternes, fenêtres, faisceau du phare), ombres douces cuites,
     petite flore (herbe, fleurs, buissons, galets), matériel dans la
-    barque.
+    barque ;
+  - un pêcheur low poly anime la barque : il rame (rames animées), tient
+    la canne, mouline, suit son bouchon du regard et lève les bras à la
+    prise.
 
   Voir `docs/PROGRESS.md`. En attente du test de l'utilisateur.
 - Dépôt git **public** : https://github.com/Zolkiev/au-fil-de-l-eau (branche
@@ -435,4 +438,15 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   les arbres et rochers ne bougent pas. Niveaux exportés : ~0,9 à 1 Mo.
 - Ombres : la petite flore (`deco_grass*`, `deco_flowers*`,
   `deco_pebbles*`) ne projette pas d'ombre (`setupShadows`).
+- Rames : `Oars` (`src/scene/oars.ts`) anime `oar_l`/`oar_r` de boat.glb
+  (quaternion d'origine × balayage autour de Y × plongée autour de Z ; la
+  rame droite est en miroir). Chaque rame a sa phase : commande gauche =
+  avancer + tourner, droite = avancer − tourner. Rangées pendant la pêche
+  (`fishing.isBusy`). Mise à jour dans `updateWorld` avec les commandes.
+- Pêcheur : `Fisher` (`src/scene/fisher.ts`), assis sur `fisher_seat`.
+  `Game.fisherPose()` choisit les cibles des mains (poignées des rames au
+  repos, `Rod.gripPosition` et `Rod.crankPosition` en pêche, genou pendant
+  l'attente, bras levés à la prise) ; le bras est résolu en IK à deux
+  segments (coude vers l'extérieur et l'arrière). Mis à jour dans `animate`
+  (tourne aussi en pause).
 

@@ -12,6 +12,10 @@ export interface RodModel {
   readonly root: Object3D;
   /** Repère de la pointe, d'où part la ligne. */
   readonly tip: Object3D;
+  /** Main droite du pêcheur sur la poignée (`rod_grip`). */
+  readonly grip: Object3D;
+  /** Centre de la manivelle du moulinet, pour la main gauche (`rod_reel`). */
+  readonly reel: Object3D;
 }
 
 /** Charge `assets/props/rod.glb` (avec son Empty `rod_tip`), ou fabrique une canne en primitives. */
@@ -21,7 +25,7 @@ export async function loadRodModel(): Promise<RodModel> {
   root.traverse((child) => {
     if (child instanceof Mesh) child.castShadow = true;
   });
-  return { root, tip: findTip(root) };
+  return { root, tip: findTip(root), grip: findAnchor(root, 'rod_grip', CONFIG.rod.gripFallback), reel: findAnchor(root, 'rod_reel', CONFIG.rod.reelFallback) };
 }
 
 /** Canne en primitives : blank effilé, poignée en liège, moulinet. */
@@ -63,6 +67,8 @@ export function findRodMount(boatModel: Object3D): Object3D {
 export class Rod {
   private readonly pivot = new Group();
   private readonly tip: Object3D;
+  private readonly grip: Object3D;
+  private readonly reel: Object3D;
   private pitch: number = CONFIG.rod.restPitch;
   private pitchVelocity = 0;
   private targetPitch: number = CONFIG.rod.restPitch;
@@ -71,6 +77,8 @@ export class Rod {
 
   constructor(model: RodModel, mount: Object3D) {
     this.tip = model.tip;
+    this.grip = model.grip;
+    this.reel = model.reel;
     this.pivot.name = 'rod_pivot';
     this.pivot.rotation.order = 'YXZ';
     this.pivot.add(model.root);
@@ -107,9 +115,34 @@ export class Rod {
     return this.tip.getWorldPosition(out);
   }
 
+  /** Où la main droite du pêcheur tient la canne (monde). */
+  gripPosition(out: Vector3): Vector3 {
+    return this.grip.getWorldPosition(out);
+  }
+
+  /**
+   * Main gauche sur la manivelle du moulinet, qui tourne d'un angle `turn`
+   * (rad) autour de l'axe du moulinet (monde).
+   */
+  crankPosition(turn: number, out: Vector3): Vector3 {
+    const radius = CONFIG.rod.crankRadius;
+    return this.reel.localToWorld(out.set(0, Math.sin(turn) * radius, Math.cos(turn) * radius));
+  }
+
   private applyRotation(): void {
     this.pivot.rotation.set(this.pitch, this.yaw, 0);
   }
+}
+
+/** Repère de la canne (Empty de rod.glb), ou un point de secours (repère de la canne, config.ts). */
+function findAnchor(root: Object3D, name: string, fallback: { x: number; y: number; z: number }): Object3D {
+  const anchor = findByBlenderName(root, name);
+  if (anchor) return anchor;
+  const point = new Object3D();
+  point.name = name;
+  point.position.set(fallback.x, fallback.y, fallback.z);
+  root.add(point);
+  return point;
 }
 
 function findTip(root: Object3D): Object3D {

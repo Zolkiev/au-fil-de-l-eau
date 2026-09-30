@@ -1,10 +1,14 @@
-"""Accessoires : barque, canne à pêche, bouchon, et Moustache le chat du ponton.
+"""Accessoires : barque (et ses rames), canne à pêche, bouchon, Moustache le
+chat du ponton, et le pêcheur.
 
 Conventions (docs/BLENDER_CONVENTIONS.md) : origine à la ligne de flottaison
 pour la barque et le bouchon, au pivot (poignée) pour la canne, au sol pour
-le chat ; l'avant regarde -Y. Objets attendus : `rod_mount`, `lantern`,
-`water_mask` (barque), `rod_tip` (canne), `cat_tail` (queue du chat, pivot à
-sa base).
+le chat, sur le banc pour le pêcheur ; l'avant regarde -Y. Objets attendus :
+`rod_mount`, `lantern`, `water_mask`, `oar_l`/`oar_r` (et leurs `_grip`),
+`fisher_seat` (barque), `rod_tip`, `rod_grip`, `rod_reel` (canne),
+`cat_tail` (queue du chat, pivot à sa base), et les pièces articulées du
+pêcheur (`fisher`, `fisher_torso`, `fisher_head`, `fisher_arm_l/r`,
+`fisher_forearm_l/r`, `fisher_hand_l/r`).
 """
 
 import math
@@ -37,7 +41,7 @@ WOOD_DARK = rgba(0x6f4a32)
 
 
 def build_all():
-    return [build_boat(), build_rod(), build_bobber(), build_cat()]
+    return [build_boat(), build_rod(), build_bobber(), build_cat(), build_fisher()]
 
 
 # --- Barque ---------------------------------------------------------------------
@@ -88,7 +92,10 @@ def build_boat():
     # Coque vue des deux côtés : matériau double face
     boat = builder.to_object("boat", palette_material("PaletteDoubleFace", double_sided=True), collection)
     build_lantern(collection, boat)
-    empty("rod_mount", collection, location=(-0.56, -0.05, 0.37), display='ARROWS', size=0.25, parent=boat)
+    # Canne sur le plat-bord droit, à portée de main du pêcheur assis au banc du milieu
+    empty("rod_mount", collection, location=(-0.56, 0.2, 0.37), display='ARROWS', size=0.25, parent=boat)
+    empty("fisher_seat", collection, location=(0, 0.55, 0.165), display='ARROWS', size=0.3, parent=boat)
+    build_oars(collection, boat)
     build_water_mask(collection, boat)
     return scene
 
@@ -138,11 +145,9 @@ def build_fittings(builder):
         builder.box((0, y, 0.14), (width, 0.28, 0.05), WOOD_SEAT)
     for x in (-0.24, -0.08, 0.08, 0.24):
         builder.box((x, 0.1, -0.15), (0.14, 2.2, 0.03), WOOD_INSIDE[1])
+    # Dames de nage (les rames sont des objets à part : le jeu les anime)
     for side in (-1, 1):
         builder.box((side * 0.62, 0.1, 0.40), (0.05, 0.08, 0.08), WOOD_DARK)
-        oar = Matrix.Rotation(side * 0.04, 4, 'Z')
-        builder.box((side * 0.3, 0.05, 0.2), (0.05, 2.3, 0.05), rgba(0xd8b48a), rotation=oar)
-        builder.box((side * 0.3 - side * 0.04, -1.05, 0.2), (0.16, 0.5, 0.02), PAINT, rotation=oar)
     builder.box((0.4, 1.36, 0.72), (0.04, 0.04, 0.62), WOOD_DARK)
     builder.box((0.4, 1.36, 1.12), (0.16, 0.16, 0.03), WOOD_DARK)
     build_gear(builder)
@@ -163,6 +168,29 @@ def build_gear(builder):
     # Rouleau de corde à l'avant, avec son creux plus sombre
     builder.cone((0.0, -0.8, FLOOR_TOP - 0.005 + 0.025), 0.12, 0.12, 0.05, 12, rgba(0xd9c49a))
     builder.cone((0.0, -0.8, FLOOR_TOP + 0.024), 0.05, 0.05, 0.05, 10, rgba(0xa8905f))
+
+
+# Rames : pivot au tolet, au-dessus des dames de nage
+OAR_PIN = (0.62, 0.1, 0.46)
+
+
+def build_oars(collection, boat):
+    """
+    Rames posées sur les dames de nage. Origine au tolet (le pivot) ; en
+    repère local, la rame s'étend vers +X : poignée à l'intérieur (-X),
+    pelle dehors (+X). La rame droite est tournée d'un demi-tour. Le jeu les
+    fait battre (voir src/scene/oars.ts) ; `oar_*_grip` marque la main.
+    """
+    x, y, z = OAR_PIN
+    for name, side in (("oar_l", 1), ("oar_r", -1)):
+        builder = MeshBuilder()
+        builder.box((0.405, 0, 0), (1.69, 0.045, 0.045), rgba(0xd8b48a))
+        builder.box((-0.35, 0, 0), (0.2, 0.052, 0.052), WOOD_DARK)
+        builder.box((1.35, 0, 0), (0.5, 0.02, 0.15), PAINT)
+        oar = builder.to_object(name, palette_material(), collection, parent=boat)
+        oar.location = (side * x, y, z)
+        oar.rotation_euler = (0, 0, 0 if side > 0 else math.pi)
+        empty(f"{name}_grip", collection, location=(-0.36, 0, 0), display='SPHERE', size=0.04, parent=oar)
 
 
 def build_lantern(collection, boat):
@@ -210,6 +238,9 @@ def build_rod():
         builder.box((0, y, -0.02), (0.012, 0.012, 0.03), rgba(0xcfd5d8))
     rod = builder.to_object("rod", palette_material(), scene.collection)
     empty("rod_tip", scene.collection, location=(0, blank_end, 0), display='SPHERE', size=0.05, parent=rod)
+    # Mains du pêcheur : la droite tient la poignée au niveau du moulinet, la gauche tourne la manivelle
+    empty("rod_grip", scene.collection, location=(0, 0.12, -0.01), display='SPHERE', size=0.03, parent=rod)
+    empty("rod_reel", scene.collection, location=(0.05, 0.12, -0.075), display='SPHERE', size=0.03, parent=rod)
     return scene
 
 
@@ -300,3 +331,105 @@ def build_cat_tail(collection, cat):
         builder.cone((start + end) / 2, radius, radius - 0.004, direction.length + 0.02, 6, color, rotation=rotation)
     tail = builder.to_object("cat_tail", palette_material(), collection, parent=cat)
     tail.location = (0, 0.2, 0.06)
+
+
+# --- Pêcheur ---------------------------------------------------------------------------
+
+SKIN = rgba(0xe7b48f)
+SKIN_DARK = rgba(0xd99b77)
+JACKET = rgba(0xe0a83a)
+JACKET_DARK = rgba(0xc38d2b)
+TROUSERS = rgba(0x3e5470)
+BOOTS = rgba(0x5a3d2b)
+HAT = rgba(0x6f7d4a)
+HAT_BAND = rgba(0x55603a)
+BEARD = rgba(0x7a5236)
+EYE = rgba(0x2b2b2b)
+SCARF = rgba(0xb8483c)
+# Longueurs des bras (m) ; la main est au bout de l'avant-bras
+UPPER_ARM, FOREARM, HAND = 0.25, 0.23, 0.045
+HIPS = (0, 0.02, 0.06)
+SHOULDER = (0.19, 0, 0.4)
+NECK_Z = 0.46
+
+
+def build_fisher():
+    """
+    Pêcheur assis, en pièces articulées que le jeu anime (src/scene/fisher.ts).
+    Origine sur le banc, face à -Y comme la barque :
+    fisher (bassin et jambes) → fisher_torso (pivot aux hanches)
+      → fisher_head (pivot au cou)
+      → fisher_arm_l/r (pivot à l'épaule, bras pendant vers -Z)
+        → fisher_forearm_l/r (pivot au coude) → fisher_hand_l/r (Empty, centre de la main).
+    La gauche est +X (l'avant regarde -Y).
+    """
+    scene = new_scene("fisher")
+    collection = scene.collection
+    material = palette_material()
+    legs = MeshBuilder()
+    build_fisher_legs(legs)
+    root = legs.to_object("fisher", material, collection)
+    torso = fisher_part(build_fisher_torso, "fisher_torso", material, collection, root, HIPS)
+    fisher_part(build_fisher_head, "fisher_head", material, collection, torso, (0, 0, NECK_Z))
+    for side, suffix in ((1, "l"), (-1, "r")):
+        arm = fisher_part(build_upper_arm, f"fisher_arm_{suffix}", material, collection, torso,
+                          (side * SHOULDER[0], SHOULDER[1], SHOULDER[2]))
+        forearm = fisher_part(build_forearm, f"fisher_forearm_{suffix}", material, collection, arm, (0, 0, -UPPER_ARM))
+        empty(f"fisher_hand_{suffix}", collection, location=(0, 0, -FOREARM - HAND), display='SPHERE', size=0.03, parent=forearm)
+    return scene
+
+
+def fisher_part(build, name, material, collection, parent, location):
+    """Une pièce du pêcheur, construite autour de son pivot et placée par rapport à son parent."""
+    builder = MeshBuilder()
+    build(builder)
+    obj = builder.to_object(name, material, collection, parent=parent)
+    obj.location = location
+    return obj
+
+
+def build_fisher_legs(builder):
+    """Bassin posé sur le banc, cuisses vers l'avant, genoux, tibias jusqu'au plancher, bottes."""
+    forward = Matrix.Rotation(math.pi / 2, 4, 'X')  # l'axe Z du cône devient -Y
+    builder.blob((0, 0.02, 0.07), 0.17, TROUSERS, scale=(1.15, 1.0, 0.6))
+    for side in (-1, 1):
+        x = side * 0.1
+        builder.cone((x, -0.16, 0.07), 0.075, 0.065, 0.34, 8, TROUSERS, rotation=forward)
+        builder.blob((x, -0.33, 0.06), 0.07, TROUSERS)
+        builder.cone((x, -0.33, -0.11), 0.065, 0.055, 0.34, 8, TROUSERS)
+        # Botte : 5 mm dans le plancher (qui est 30 cm sous le banc)
+        builder.box((x, -0.37, -0.265), (0.12, 0.22, 0.08), BOOTS)
+
+
+def build_fisher_torso(builder):
+    """Ciré moutarde un peu évasé, rabat plus sombre devant, écharpe rouge au cou ; pivot aux hanches."""
+    builder.cone((0, 0, 0.2), 0.2, 0.155, 0.42, 10, JACKET)
+    builder.box((0, -0.19, 0.2), (0.03, 0.02, 0.34), JACKET_DARK)
+    builder.cone((0, 0, 0.43), 0.1, 0.085, 0.06, 10, SCARF)
+
+
+def build_fisher_head(builder):
+    """Tête ronde, nez, yeux, barbe courte, bob kaki à bande sombre ; regarde vers -Y. Pivot au cou."""
+    builder.blob((0, 0, 0.14), 0.14, SKIN, subdivisions=2)
+    builder.blob((0, -0.137, 0.125), 0.032, SKIN_DARK)
+    for side in (-1, 1):
+        builder.blob((side * 0.05, -0.123, 0.17), 0.017, EYE)
+    builder.blob((0, -0.075, 0.065), 0.105, BEARD, scale=(1.0, 0.75, 0.7))
+    builder.cone((0, 0, 0.215), 0.2, 0.185, 0.03, 12, HAT)
+    builder.cone((0, 0, 0.245), 0.135, 0.13, 0.035, 12, HAT_BAND)
+    builder.cone((0, 0, 0.29), 0.128, 0.1, 0.07, 12, HAT)
+
+
+def build_upper_arm(builder):
+    """Épaule arrondie et bras (manche du ciré), pendant vers -Z depuis l'épaule."""
+    builder.blob((0, 0, 0), 0.07, JACKET)
+    builder.cone((0, 0, -UPPER_ARM / 2), 0.058, 0.05, UPPER_ARM, 8, JACKET)
+
+
+def build_forearm(builder):
+    """Avant-bras, manchette plus sombre et main, pendant vers -Z depuis le coude."""
+    builder.blob((0, 0, 0), 0.052, JACKET)
+    builder.cone((0, 0, -FOREARM / 2), 0.05, 0.045, FOREARM, 8, JACKET)
+    builder.cone((0, 0, -FOREARM + 0.015), 0.053, 0.053, 0.04, 8, JACKET_DARK)
+    builder.blob((0, 0, -FOREARM - HAND), 0.048, SKIN)
+

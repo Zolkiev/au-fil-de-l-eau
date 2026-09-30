@@ -270,6 +270,9 @@ def support_problem(points, others, terrain, level):
 
 
 def check_scene(scene):
+    # Positions à jour (juste après une génération, les pièces enfants ne sont pas encore placées)
+    for view_layer in scene.view_layers:
+        view_layer.update()
     report = {}
     faces = overlapping_faces(scene)
     if faces:

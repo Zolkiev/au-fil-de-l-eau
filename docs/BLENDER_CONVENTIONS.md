@@ -219,6 +219,14 @@ Les zones peuvent se chevaucher : c'est alors **la plus petite** qui compte
   lanterne qui s'allume la nuit (lumière chaude). Si c'est un objet avec un
   matériau émissif (couleur d'émission non noire), il brille aussi la nuit.
   Sans `lantern`, la lumière est placée au-dessus du centre de la barque.
+- **`oar_l`, `oar_r`** (objets, facultatifs) : les rames, que le jeu fait
+  battre. Origine **au tolet** (le pivot, au-dessus des dames de nage) ; en
+  repère local, la rame s'étend vers **+X** (poignée vers -X, pelle vers +X).
+  La rame droite est la même, tournée d'un demi-tour (rotation Z = 180°). Un
+  Empty enfant **`oar_l_grip`** / **`oar_r_grip`** marque l'endroit où le
+  pêcheur tient la poignée. Sans rames, la barque avance quand même.
+- **`fisher_seat`** (Empty, facultatif) : où s'assoit le pêcheur (sur le
+  banc, regard vers -Y). Sans lui : banc du milieu (`CONFIG.fisher`).
 - **Peinture (décoration de la cabane)** : le jeu repeint les sommets de la
   couleur d'origine `#6aa9a8` (bleu-vert). Si tu changes cette couleur dans
   Blender, change aussi la décoration à prix 0 `paint_teal` dans
@@ -236,6 +244,10 @@ Les zones peuvent se chevaucher : c'est alors **la plus petite** qui compte
 - **`rod_tip`** (Empty, enfant de la canne) : la pointe, d'où part la ligne.
   S'il est absent, la pointe est placée au bout du modèle, avec un
   avertissement.
+- **`rod_grip`** et **`rod_reel`** (Empties, facultatifs) : où la main droite
+  du pêcheur tient la poignée, et le centre de la manivelle du moulinet (la
+  main gauche en fait le tour autour de l'axe X de la canne). Sans eux :
+  positions de `CONFIG.rod`.
 - Longueur de référence : environ 2,4 m.
 
 ## Bouchon : `assets/props/bobber.glb`
@@ -260,6 +272,27 @@ Les zones peuvent se chevaucher : c'est alors **la plus petite** qui compte
   sa base**. Le jeu la fait balancer autour de la verticale. Sans elle, le
   chat reste immobile (il respire quand même).
 - Absent : un chat en primitives le remplace.
+
+## Pêcheur : `assets/props/fisher.glb`
+
+- Le personnage de la barque, assis sur l'Empty `fisher_seat`. Origine **sur
+  le banc** (sous son bassin), regard vers -Y ; environ 1 m de haut assis.
+- Il est fait de **pièces articulées**, chacune avec son origine au pivot,
+  que le jeu anime en code (`src/scene/fisher.ts`) :
+  - `fisher` : bassin et jambes (fixes) ;
+  - `fisher_torso` (enfant de `fisher`) : pivot aux hanches, le buste se
+    penche au rythme des rames ;
+  - `fisher_head` (enfant du buste) : pivot au cou, la tête suit le
+    bouchon ;
+  - `fisher_arm_l` / `fisher_arm_r` (enfants du buste) : pivot à l'épaule,
+    le bras **pend vers -Z** ;
+  - `fisher_forearm_l` / `_r` (enfants du bras) : pivot au coude, l'avant-
+    bras pend vers -Z, la main au bout ;
+  - `fisher_hand_l` / `_r` (Empties, enfants de l'avant-bras) : le centre de
+    la main, là où le jeu la place (poignée de rame, canne, manivelle). Les
+    longueurs des bras sont lues d'après ces positions.
+- La gauche est **+X** (il regarde -Y). Absent : un pêcheur en primitives le
+  remplace.
 
 ## Poissons : `assets/fish/<id>.glb`
 

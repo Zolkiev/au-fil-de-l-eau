@@ -18,6 +18,8 @@ import { currentBoosts } from '../progression/rendezvous';
 import type { Pwa } from '../pwa/pwa';
 import { Cat, loadCatModel } from '../scene/cat';
 import { Clouds } from '../scene/clouds';
+import { Fisher, loadFisherModel, type FisherPose } from '../scene/fisher';
+import { Oars } from '../scene/oars';
 import { NightLights } from '../scene/nightLights';
 import { DayNight } from '../scene/dayNight';
 import { Decor } from '../scene/decor';
@@ -66,6 +68,7 @@ interface LoadedAssets {
   readonly rodModel: RodModel;
   readonly bobberModel: Object3D;
   readonly catModel: Object3D;
+  readonly fisherModel: Object3D;
   /** Lieu de pêche chargé, et la partie relue (qui disait où l'on était). */
   readonly place: PlaceId;
   readonly progress: Progress;
@@ -111,6 +114,13 @@ export class Game {
   private readonly critters: Critters;
   private readonly clouds = new Clouds();
   private readonly nightLights: NightLights;
+  private readonly rod: Rod;
+  private readonly oars: Oars;
+  private readonly fisher: Fisher;
+  /** Cibles des mains du pêcheur (réutilisées d'une image à l'autre) et tour de manivelle du moulinet. */
+  private readonly leftHand = new Vector3();
+  private readonly rightHand = new Vector3();
+  private crankTurn = 0;
   private readonly fsm = new StateMachine<GameState>('jeu', 'title', GAME_TRANSITIONS);
   private readonly scene = new Scene();
   private readonly clock = new GameClock();
@@ -159,15 +169,16 @@ export class Game {
     const place = progress.saved?.world.place ?? DEFAULT_PLACE;
     hud.setLoadingText(TEXTS.places.loading(placeById(place).of));
     const audio = new AudioManager();
-    const [level, boatModel, rodModel, bobberModel, catModel] = await Promise.all([
+    const [level, boatModel, rodModel, bobberModel, catModel, fisherModel] = await Promise.all([
       loadLevel(placeById(place).level),
       loadBoatModel(),
       loadRodModel(),
       loadBobberModel(),
       loadCatModel(),
+      loadFisherModel(),
       audio.load(),
     ]);
-    return new Game(container, hud, { level, boatModel, rodModel, bobberModel, catModel, audio, place, progress, pwa });
+    return new Game(container, hud, { level, boatModel, rodModel, bobberModel, catModel, fisherModel, audio, place, progress, pwa });
   }
 
   private constructor(container: HTMLElement, hud: Hud, assets: LoadedAssets) {
@@ -210,6 +221,9 @@ export class Game {
       onOpenJournal: () => this.openOverlay('journal'),
       onOpenMenu: () => this.pause(),
     });
+    this.rod = new Rod(assets.rodModel, findRodMount(assets.boatModel));
+    this.oars = new Oars(assets.boatModel, (blade) => this.oarSplash(blade));
+    this.fisher = new Fisher(assets.fisherModel, assets.boatModel);
     this.fishing = this.createFishing(assets);
     this.stick = new TouchStick(hud.layer);
     this.progressionHud = this.createProgressionHud(assets);
@@ -303,7 +317,7 @@ export class Game {
       input: this.input,
       boat: this.boat,
       level: assets.level,
-      rod: new Rod(assets.rodModel, findRodMount(assets.boatModel)),
+      rod: this.rod,
       bobberModel: assets.bobberModel,
       clock: this.clock,
       audio: assets.audio,
@@ -526,7 +540,9 @@ export class Game {
     const hours = this.clock.update(dt);
     this.updateWeather(hours);
     this.progress.update(dt);
-    this.boat.update(dt, this.readBoatControls());
+    const controls = this.readBoatControls();
+    this.boat.update(dt, controls);
+    this.oars.update(dt, controls, this.fishing.isBusy);
     this.fishing.update(dt, elapsed);
     this.fishSigns.update(dt, elapsed, this.boat.position, this.boat.yaw);
     this.progressionHud.update(dt);
@@ -557,6 +573,7 @@ export class Game {
     this.boat.animate(dt, elapsed);
     const night = this.applyAmbience();
     this.nightLights.update(dt, night);
+    this.fisher.update(dt, elapsed, this.fisherPose(dt));
     this.fireflies.update(elapsed, this.boat.position, this.level.water.level, night);
     this.rig.update(dt, this.boat, this.fishing.focusPoint);
     this.cat?.update(elapsed);
@@ -616,6 +633,33 @@ export class Game {
   }
 
   /** Quand la barque avance, elle laisse des ronds derrière elle. */
+  /**
+   * Ce que fait le pêcheur : les mains sur les rames quand la ligne est au
+   * repos, sur la canne sinon (la gauche tourne la manivelle quand on
+   * mouline) ; il regarde son bouchon, et lève les bras à la prise.
+   */
+  private fisherPose(dt: number): FisherPose {
+    const state = this.fishing.state;
+    if (state === 'CAUGHT') return { left: null, right: null, lookAt: null, lean: 0, cheer: true };
+    if (state === 'IDLE') {
+      const left = this.oars.gripPosition('l', this.leftHand);
+      const right = this.oars.gripPosition('r', this.rightHand);
+      return { left, right, lookAt: null, lean: this.oars.stroke };
+    }
+    const winding = (state === 'REELING' && this.input.isPointerHeld) || state === 'ESCAPED';
+    if (winding) this.crankTurn += dt * CONFIG.fisher.reelTurns * 2 * Math.PI;
+    const right = this.rod.gripPosition(this.rightHand);
+    // En attendant la touche, la main gauche se repose sur le genou
+    const left = state === 'WAITING' ? null : this.rod.crankPosition(this.crankTurn, this.leftHand);
+    return { left, right, lookAt: this.fishing.focusPoint, lean: 0 };
+  }
+
+  /** Une pelle entre dans l'eau : petit rond et plouf discret. */
+  private oarSplash(blade: Vector3): void {
+    this.wake.spawn(blade.x, this.level.water.level, blade.z, 0.35, 0.9, 0.45);
+    this.audio.play('splash', 0.2, CONFIG.oars.splashVolume);
+  }
+
   private updateWake(dt: number, elapsed: number): void {
     const { minSpeed, interval } = CONFIG.wake;
     this.wake.update(dt, elapsed);

@@ -20,8 +20,51 @@
 | + | Polish visuel (1) : assets corrigés, éclairage, ombres du décor, nuages | ✅ Livré le 2026-09-30, **à tester** |
 | + | Polish visuel (2) : lumières de nuit, correction de l'acné d'ombre | ✅ Livré le 2026-09-30, **à tester** |
 | + | Polish visuel (3) : ombres douces cuites, petite flore, matériel dans la barque | ✅ Livré le 2026-09-30, **à tester** |
+| + | Le pêcheur et les rames animées | ✅ Livré le 2026-09-30, **à tester** |
 
 ---
+
+## Le pêcheur et les rames animées
+
+### Livré
+
+- **Un pêcheur low poly** (`assets/props/fisher.glb`) : bob kaki, ciré
+  moutarde, écharpe rouge, barbe, pantalon bleu et bottes, assis au banc du
+  milieu, face à l'avant. Il est fait de pièces articulées (buste, tête,
+  bras, avant-bras) animées en code (`src/scene/fisher.ts`) :
+  - **ligne au repos** : il tient les poignées des rames, et se penche au
+    rythme des coups de rame ;
+  - **en pêche** : la main droite tient la canne (elle suit la canne quand
+    on vise, lance, ferre) ; pendant l'attente, la main gauche se pose sur
+    le genou ; pendant la remontée, elle tourne la manivelle du moulinet
+    (seulement quand on mouline) ;
+  - il **suit son bouchon du regard**, et regarde autour de lui le reste du
+    temps ; il respire et se balance doucement ;
+  - **à la prise**, il lève les deux bras.
+- **Rames animées** (`src/scene/oars.ts`) : les rames sont sorties sur les
+  dames de nage. En ramant, chacune fait de vrais coups de rame (pelle dans
+  l'eau pendant la poussée, levée au retour), en avant ou en arrière ; pour
+  tourner, l'une avance et l'autre recule. Petit rond et plouf discret à
+  chaque entrée de la pelle dans l'eau. Au repos, pelles juste au-dessus de
+  l'eau ; pendant la pêche, rangées le long de la coque.
+- La canne a été avancée sur le plat-bord droit, à portée de main.
+- Réglages : `CONFIG.oars`, `CONFIG.fisher`.
+
+### Vérifications déjà faites
+
+- Captures : pêcheur de face et de dos, rames au repos, deux instants du
+  coup de rame (vue de jeu et de côté), attente (rames rangées, main sur le
+  genou, tête vers le bouchon), remontée (mains sur la canne et la
+  manivelle), bras levés à la prise.
+- Position des pelles rangées vérifiée par le calcul (à l'arrière et hors de
+  la coque, des deux côtés).
+- Contrôle des assets : rien à signaler.
+
+### Limites connues
+
+- Il rame face à l'avant, en poussant (plus lisible depuis la caméra).
+- Les bras ne tiennent pas compte de la coque : dans une position extrême,
+  un coude peut frôler le plat-bord.
 
 ## Polish visuel (3) : ombres douces, flore, matériel
 

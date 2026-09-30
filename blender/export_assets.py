@@ -12,6 +12,7 @@ Correspondance scène → fichier :
   rod         → assets/props/rod.glb
   bobber      → assets/props/bobber.glb
   cat         → assets/props/cat.glb
+  fisher      → assets/props/fisher.glb
   fish_<id>   → assets/fish/<id>.glb
 """
 
@@ -19,7 +20,8 @@ import os
 
 import bpy
 
-PROPS = {"boat": "props/boat.glb", "rod": "props/rod.glb", "bobber": "props/bobber.glb", "cat": "props/cat.glb"}
+PROPS = {"boat": "props/boat.glb", "rod": "props/rod.glb", "bobber": "props/bobber.glb", "cat": "props/cat.glb",
+         "fisher": "props/fisher.glb"}
 LEVELS = ("lake_01", "river_01", "cove_01")
 
 

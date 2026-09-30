@@ -14,6 +14,8 @@ export const CONFIG = {
     bobber: 'props/bobber.glb',
     /** Moustache, le chat du ponton (placé sur l'Empty `npc_cat` du niveau). */
     cat: 'props/cat.glb',
+    /** Le pêcheur, assis sur l'Empty `fisher_seat` de la barque. */
+    fisher: 'props/fisher.glb',
     /** Dossier des poissons : un fichier `<id>.glb` par espèce (voir src/data/fish.ts). */
     fishFolder: 'fish/',
   },
@@ -363,6 +365,48 @@ export const CONFIG = {
     beacon: { color: 0xfff1c0, length: 70, radius: 6, speed: 0.5, tilt: 0.06, opacity: 0.2 },
   },
 
+  /** Rames de la barque (src/scene/oars.ts). Angles en radians. */
+  oars: {
+    /** Coups de rame par seconde, à pleine commande. */
+    strokeRate: 0.85,
+    /** Balayage avant-arrière de la pelle, de part et d'autre. */
+    sweep: 0.42,
+    /** Plongée vers l'eau : pelle dans l'eau (poussée), levée (retour), au repos. */
+    dipIn: 0.4,
+    dipOut: 0.12,
+    dipRest: 0.25,
+    /** Rangées le long de la coque pendant la pêche. */
+    stowSweep: 1.35,
+    stowDip: 0.05,
+    /** Réactivité (1/s). */
+    response: 10,
+    /** Distance du tolet au milieu de la pelle (m), pour les éclaboussures. */
+    bladeDistance: 1.35,
+    /** Volume du petit plouf de chaque coup de rame. */
+    splashVolume: 0.12,
+  },
+
+  /** Le pêcheur de la barque (src/scene/fisher.ts). */
+  fisher: {
+    /** Réactivité des mains et de la tête (1/s). */
+    handResponse: 12,
+    headResponse: 4,
+    /** Penché en avant au bout d'un coup de rame (rad). */
+    rowLean: 0.3,
+    /** Tête : rotation maximale pour suivre le bouchon (rad), sur les côtés et vers le bas. */
+    headYaw: 1.0,
+    headPitch: 0.45,
+    /** Tours de manivelle par seconde quand on mouline. */
+    reelTurns: 2.2,
+    /** Main posée sur le genou au repos, et bras levés quand il attrape un poisson (repères du pêcheur et du buste). */
+    knee: { x: 0.1, y: 0.16, z: 0.3 },
+    cheer: { x: 0.3, y: 0.85, z: 0.1 },
+    /** Longueur de l'avant-bras jusqu'au milieu de la main, si fisher.glb n'a pas d'Empty `fisher_hand_*`. */
+    forearmLength: 0.275,
+    /** Siège si boat.glb n'a pas d'Empty `fisher_seat` (repère de la barque). */
+    fallbackSeat: { x: 0, y: 0.165, z: -0.55 },
+  },
+
   /** Nuages qui dérivent dans le ciel (src/scene/clouds.ts). */
   clouds: {
     count: 22,
@@ -476,7 +520,12 @@ export const CONFIG = {
     /** Longueur de ligne sous la pointe quand le bouchon pend (m). */
     hangLength: 0.6,
     /** Fixation de la canne si boat.glb ne contient pas d'Empty `rod_mount` (repère de la barque). */
-    fallbackMount: { x: -0.55, y: 0.32, z: 0.2 },
+    fallbackMount: { x: -0.56, y: 0.37, z: -0.2 },
+    /** Mains du pêcheur si rod.glb n'a pas d'Empty `rod_grip` / `rod_reel` (repère de la canne). */
+    gripFallback: { x: 0, y: -0.01, z: -0.12 },
+    reelFallback: { x: 0.05, y: -0.075, z: -0.12 },
+    /** Rayon du tour de manivelle (m). */
+    crankRadius: 0.035,
   },
 
   audio: {
