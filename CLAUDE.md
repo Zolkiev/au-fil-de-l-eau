@@ -134,7 +134,7 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
     qui se débloque à la 4ᵉ espèce de la rivière ;
   - le jeu est une PWA : installable, jouable hors connexion, mises à jour
     proposées depuis le menu ;
-  - polish visuel (en cours) : assets corrigés (faces qui clignotaient,
+  - polish visuel : assets corrigés (faces qui clignotaient,
     décor qui flottait), éclairage revu, ombres du décor, nuages, lumières
     de nuit (lanternes, fenêtres, faisceau du phare), ombres douces cuites,
     petite flore (herbe, fleurs, buissons, galets), matériel dans la
@@ -145,7 +145,9 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   - réglage de qualité graphique (Auto / Basse / Moyenne / Haute) avec
     baisse automatique si le jeu rame, et compteur d'images par seconde.
 
-  Voir `docs/PROGRESS.md`. En attente du test de l'utilisateur.
+  Voir `docs/PROGRESS.md` (dont « Prochaines pistes »). En attente : les
+  images par seconde mesurées par l'utilisateur sur son iPhone (qualité
+  Auto/Moyenne et Haute), pour ajuster `CONFIG.quality`.
 - Dépôt git **public** : https://github.com/Zolkiev/au-fil-de-l-eau (branche
   `main`, commits signés `jael.pattyn@gmail.com`, réglage local du dépôt).
   Chaque push sur `main` met le jeu en ligne sur

@@ -16,6 +16,9 @@ Le jeu s’installe comme une application et marche ensuite sans connexion.
 - **Android** : ouvrir le lien dans Chrome › « Installer le jeu » sur l’écran
   titre (ou menu ⋮ › Installer l’application).
 
+Si le jeu manque de fluidité : Réglages › Affichage › Qualité graphique
+(Basse, Moyenne, Haute ; « Auto » s’adapte tout seul).
+
 ## Commandes
 
 | Ordinateur | Téléphone | Action |

@@ -23,6 +23,17 @@
 | + | Le pêcheur et les rames animées | ✅ Livré le 2026-09-30, **à tester** |
 | + | Qualité graphique (Auto / Basse / Moyenne / Haute) et compteur d'images | ✅ Livré le 2026-09-30, **à tester** |
 
+## Prochaines pistes (fin de la session du 2026-09-30)
+
+- **Ajuster la qualité graphique** d'après les images par seconde mesurées
+  sur iPhone (compteur : Réglages › Affichage › Images par seconde).
+- **Personnaliser le pêcheur** : bobs, cirés, écharpes à la boutique de
+  Moustache.
+- **Plus de vie sur l'eau** : canards, nénuphars, grenouilles le soir,
+  héron, poissons qu'on devine sous la surface.
+- **Vrais sons et musique** : remplacer les sons générés (choisir une
+  source : banques gratuites ou génération par IA).
+
 ---
 
 ## Qualité graphique et compteur d'images
