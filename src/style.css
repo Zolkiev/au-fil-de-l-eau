@@ -1,0 +1,1659 @@
+:root {
+  /* Marges des encoches et barres système (téléphones, voir viewport-fit dans index.html) */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --ink: #3d4a52;
+  --panel: rgba(251, 245, 234, 0.82);
+  --error: #b5523b;
+  --accent: #e3875a;
+  --font: ui-rounded, 'SF Pro Rounded', 'Nunito', 'Segoe UI', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #cfe3ea;
+  color: var(--ink);
+  font-family: var(--font);
+  user-select: none;
+  -webkit-user-select: none;
+  /* Tactile : pas de zoom, de défilement ni de menu d'appui long sur le jeu */
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Pas de délai ni de double-tap zoom sur les contrôles ; les panneaux défilent au doigt */
+button,
+input,
+select {
+  touch-action: manipulation;
+}
+
+.menu,
+.menu-panel,
+.journal-panel {
+  touch-action: pan-y;
+}
+
+#app,
+#app canvas {
+  position: fixed;
+  inset: 0;
+  display: block;
+}
+
+/* Le HUD laisse passer la souris vers le canvas, sauf éléments interactifs */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* --- Écran de chargement --- */
+
+.loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  padding: 16px;
+  text-align: center;
+  background: linear-gradient(#9fcbe6, #f3dcc4);
+  transition: opacity 0.8s ease;
+}
+
+.loading.is-hidden {
+  opacity: 0;
+}
+
+.loading h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 7vw, 3.6rem);
+  letter-spacing: 0.02em;
+}
+
+.loading-text {
+  margin: 0.5rem 0 0;
+  opacity: 0.7;
+  animation: breathe 2.4s ease-in-out infinite;
+}
+
+.loading.is-error .loading-text {
+  color: var(--error);
+  opacity: 1;
+  animation: none;
+}
+
+/* --- HUD en jeu --- */
+
+.hud-prompt {
+  position: absolute;
+  left: 50%;
+  bottom: calc(20px + var(--safe-bottom));
+  max-width: calc(100% - 32px);
+  transform: translateX(-50%);
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgba(61, 74, 82, 0.12);
+  font-size: calc(14px * var(--text-scale, 1));
+  text-align: center;
+}
+
+.hud-notice {
+  position: absolute;
+  top: calc(16px + var(--safe-top));
+  left: calc(16px + var(--safe-left));
+  max-width: calc(50% - 24px);
+  padding: 6px 12px;
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: calc(12px * var(--text-scale, 1));
+  opacity: 0.85;
+}
+
+/* Messages éphémères, empilés au centre */
+.hud-toasts {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: calc(100% - 32px);
+  transform: translateX(-50%);
+}
+
+.hud-toast {
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgba(61, 74, 82, 0.12);
+  font-size: calc(16px * var(--text-scale, 1));
+  text-align: center;
+  animation: toast 2.4s ease forwards;
+}
+
+/* Jauge de puissance du lancer, avec la zone visée au-dessus */
+.power {
+  position: absolute;
+  left: 50%;
+  bottom: calc(64px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: min(calc(240px * var(--text-scale, 1)), calc(100% - 32px));
+  transform: translateX(-50%);
+}
+
+.power-label {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: calc(13px * var(--text-scale, 1));
+}
+
+.power-bar {
+  width: 100%;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: 0 2px 10px rgba(61, 74, 82, 0.15);
+}
+
+.power-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7fc8c0, #f2c46d, #e98a5e);
+  transform-origin: left center;
+}
+
+/* « ! » au-dessus du bouchon à la vraie touche (positionné en JS) */
+.bite-alert {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff6e0;
+  box-shadow: 0 4px 14px rgba(61, 74, 82, 0.25);
+  color: var(--accent);
+  font-size: calc(28px * var(--text-scale, 1));
+  font-weight: 800;
+  transform: translate(-50%, -100%);
+  animation: pop 0.25s ease-out;
+}
+
+/* Panneau « matériel » : heure et appâts */
+.tackle {
+  position: absolute;
+  top: calc(16px + var(--safe-top));
+  right: calc(16px + var(--safe-right));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: calc(50% - 24px);
+}
+
+.tackle-row {
+  display: flex;
+  gap: 6px;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: calc(16px * var(--text-scale, 1));
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.icon-button:hover {
+  background: #fff;
+}
+
+/* Sur l'écran titre, l'interface de jeu est masquée */
+#hud.is-title .tackle,
+#hud.is-title .hud-prompt {
+  display: none;
+}
+
+.tackle-clock {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  white-space: nowrap;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: calc(14px * var(--text-scale, 1));
+  font-variant-numeric: tabular-nums;
+}
+
+.tackle-baits {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.bait {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 4px;
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font: inherit;
+  font-size: calc(13px * var(--text-scale, 1));
+  cursor: pointer;
+  pointer-events: auto;
+  opacity: 0.75;
+  transition: opacity 0.2s ease, border-color 0.2s ease;
+}
+
+.bait:hover,
+.bait.is-selected {
+  opacity: 1;
+}
+
+.bait.is-selected {
+  border-color: var(--accent);
+}
+
+.bait kbd {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(61, 74, 82, 0.1);
+  font: inherit;
+  font-size: calc(11px * var(--text-scale, 1));
+}
+
+.tackle-description {
+  max-width: 260px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: var(--panel);
+  font-size: calc(12px * var(--text-scale, 1));
+  text-align: right;
+  opacity: 0.85;
+}
+
+/* Jauge de remontée : piste du poisson + tension + risque de casse */
+.reel {
+  position: absolute;
+  left: 50%;
+  bottom: calc(64px + var(--safe-bottom));
+  width: min(calc(320px * var(--text-scale, 1)), calc(100% - 32px));
+  padding: 10px 14px 12px;
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgba(61, 74, 82, 0.15);
+  transform: translateX(-50%);
+}
+
+.reel-track {
+  position: relative;
+  height: 26px;
+  margin-bottom: 6px;
+  border-bottom: 2px dashed rgba(61, 74, 82, 0.2);
+}
+
+.reel-boat,
+.reel-fish {
+  position: absolute;
+  bottom: 0;
+  font-size: calc(20px * var(--text-scale, 1));
+  line-height: 1;
+  transform: translateX(-50%);
+}
+
+.reel-boat {
+  left: 0;
+  transform: none;
+}
+
+.reel-fish {
+  transition: left 0.1s linear;
+}
+
+.reel-distance {
+  position: absolute;
+  right: 0;
+  top: 0;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.reel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reel-label {
+  font-size: calc(12px * var(--text-scale, 1));
+  opacity: 0.75;
+}
+
+.reel-bar {
+  position: relative;
+  flex: 1;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(61, 74, 82, 0.12);
+}
+
+/* Zone rouge en bout de jauge */
+.reel-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0 0 0 88%;
+  background: rgba(233, 94, 72, 0.25);
+}
+
+.reel-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  transform-origin: left center;
+}
+
+.reel-bar.is-max {
+  animation: strain 0.25s ease-in-out infinite alternate;
+}
+
+/* Risque de casse : fine barre rouge sous la tension */
+.reel-break {
+  height: 3px;
+  margin-top: 6px;
+  border-radius: 999px;
+  background: #e95e48;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+/* Présentation de la prise */
+.catch-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 40%, transparent 35%, rgba(40, 52, 60, 0.45));
+  animation: fade-in 0.6s ease;
+}
+
+.catch-card {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  width: min(calc(380px * var(--text-scale, 1)), calc(100% - 32px));
+  padding: 14px 20px 12px;
+  border-top: 4px solid var(--rarity);
+  border-radius: 18px;
+  background: rgba(251, 245, 234, 0.94);
+  box-shadow: 0 8px 28px rgba(40, 52, 60, 0.25);
+  text-align: center;
+  transform: translateX(-50%);
+  animation: rise 0.5s ease 0.5s both;
+}
+
+.rarity-common {
+  --rarity: #8fb28a;
+}
+
+.rarity-uncommon {
+  --rarity: #6fa8c9;
+}
+
+.rarity-rare {
+  --rarity: #a887d4;
+}
+
+.rarity-legendary {
+  --rarity: #e3a94f;
+}
+
+.catch-rarity {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--rarity);
+  color: #fff;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.catch-name {
+  margin-top: 6px;
+  font-size: calc(22px * var(--text-scale, 1));
+  font-weight: 700;
+}
+
+.catch-size {
+  font-size: calc(18px * var(--text-scale, 1));
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
+}
+
+.catch-badges {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.catch-badges:empty {
+  display: none;
+}
+
+.catch-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #fff1c7;
+  color: #a36a14;
+  font-size: calc(13px * var(--text-scale, 1));
+  font-weight: 700;
+}
+
+.catch-description {
+  margin: 8px 0 6px;
+  font-size: calc(14px * var(--text-scale, 1));
+  line-height: 1.4;
+}
+
+.catch-continue {
+  font-size: calc(12px * var(--text-scale, 1));
+  opacity: 0.6;
+}
+
+/* Carnet de pêche (plein écran, le jeu est en pause) */
+.journal {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom))
+    calc(16px + var(--safe-left));
+  background: rgba(40, 52, 60, 0.35);
+  backdrop-filter: blur(3px);
+  pointer-events: auto;
+  animation: fade-in 0.25s ease;
+}
+
+.journal-panel {
+  width: min(980px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 18px 20px 20px;
+  border-radius: 20px;
+  background: #fbf5ea;
+  box-shadow: 0 12px 40px rgba(40, 52, 60, 0.3);
+}
+
+.journal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* L'en-tête (titre, fermer) reste en haut quand on fait défiler le carnet */
+.journal-panel > .journal-header {
+  position: sticky;
+  top: -18px;
+  z-index: 2;
+  margin: -18px -20px 0;
+  padding: 18px 20px 8px;
+  background: #fbf5ea;
+}
+
+.journal-title {
+  font-size: calc(24px * var(--text-scale, 1));
+  font-weight: 700;
+}
+
+.journal-close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(61, 74, 82, 0.08);
+  color: var(--ink);
+  font-size: calc(16px * var(--text-scale, 1));
+  cursor: pointer;
+}
+
+.journal-close:hover {
+  background: rgba(61, 74, 82, 0.16);
+}
+
+.journal-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 16px;
+}
+
+.journal-chip {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(61, 74, 82, 0.08);
+  font-size: calc(13px * var(--text-scale, 1));
+}
+
+.journal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.journal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px 12px;
+  border-top: 4px solid var(--rarity);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(61, 74, 82, 0.08);
+}
+
+.journal-card.is-unknown {
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.journal-thumb {
+  align-self: stretch;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+
+.journal-name {
+  font-size: calc(16px * var(--text-scale, 1));
+  font-weight: 700;
+}
+
+.is-unknown .journal-name {
+  letter-spacing: 0.2em;
+  opacity: 0.5;
+}
+
+.journal-record {
+  font-size: calc(13px * var(--text-scale, 1));
+  font-weight: 600;
+}
+
+.journal-where,
+.journal-meta {
+  font-size: calc(12px * var(--text-scale, 1));
+  opacity: 0.75;
+}
+
+.journal-description {
+  font-size: calc(13px * var(--text-scale, 1));
+  line-height: 1.35;
+}
+
+/* Menus : titre, pause, réglages */
+.menu {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom))
+    calc(16px + var(--safe-left));
+  overflow-y: auto;
+  pointer-events: auto;
+  animation: fade-in 0.3s ease;
+}
+
+.menu-screen-pause,
+.menu-screen-settings {
+  background: rgba(40, 52, 60, 0.35);
+  backdrop-filter: blur(3px);
+}
+
+/* L'écran titre laisse voir le lac, avec un voile doux en bas */
+.menu-screen-title {
+  align-items: end;
+  padding-bottom: 12vh;
+  background: linear-gradient(transparent 40%, rgba(40, 52, 60, 0.35));
+}
+
+.menu-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(calc(380px * var(--text-scale, 1)), 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 22px 24px;
+  border-radius: 22px;
+  background: rgba(251, 245, 234, 0.95);
+  box-shadow: 0 12px 40px rgba(40, 52, 60, 0.3);
+}
+
+.menu-title-panel {
+  align-items: center;
+  text-align: center;
+  background: rgba(251, 245, 234, 0.88);
+}
+
+.menu-logo {
+  font-size: clamp(2.2rem, 8vw, 3.2rem);
+  font-weight: 800;
+  letter-spacing: 0.01em;
+}
+
+.menu-tagline {
+  margin-bottom: 8px;
+  opacity: 0.7;
+}
+
+.menu-progress {
+  margin-top: -4px;
+  font-size: calc(13px * var(--text-scale, 1));
+  opacity: 0.7;
+}
+
+/* Aide à l'installation (iPhone) sous les boutons de l'écran titre */
+.menu-note {
+  font-size: calc(12px * var(--text-scale, 1));
+  line-height: 1.4;
+  text-align: center;
+  opacity: 0.7;
+}
+
+/* Nouvelle version du jeu prête (PWA) */
+.menu-update {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(227, 135, 90, 0.12);
+  text-align: center;
+  font-size: calc(13px * var(--text-scale, 1));
+}
+
+.menu-title {
+  font-size: calc(22px * var(--text-scale, 1));
+  font-weight: 700;
+}
+
+.menu-button {
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(61, 74, 82, 0.08);
+  color: var(--ink);
+  font: inherit;
+  font-size: calc(16px * var(--text-scale, 1));
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.menu-button:hover {
+  background: rgba(61, 74, 82, 0.15);
+}
+
+.menu-button:active {
+  transform: scale(0.98);
+}
+
+.menu-button.is-primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+
+.menu-button.is-primary:hover {
+  background: #d9794c;
+}
+
+.menu-button.is-quiet {
+  font-size: calc(14px * var(--text-scale, 1));
+}
+
+.menu-button.is-danger {
+  background: var(--error);
+  color: #fff;
+}
+
+.menu-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.menu-controls-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: calc(13px * var(--text-scale, 1));
+}
+
+.menu-keys {
+  font-weight: 600;
+}
+
+.menu-action {
+  text-align: right;
+  opacity: 0.75;
+}
+
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-heading {
+  margin-top: 6px;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: calc(14px * var(--text-scale, 1));
+}
+
+.settings-row input[type='range'] {
+  width: 50%;
+  accent-color: var(--accent);
+}
+
+.settings-row input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.segmented {
+  display: flex;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(61, 74, 82, 0.08);
+}
+
+.segmented button {
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: calc(13px * var(--text-scale, 1));
+  cursor: pointer;
+}
+
+.segmented button.is-selected {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* --- Progression : coquillages, objectifs, ponton de Moustache --- */
+
+.tackle-shells {
+  display: flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--panel);
+  font-size: calc(14px * var(--text-scale, 1));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: auto;
+}
+
+/* Pastille « nouvelles demandes » sur le bouton de Moustache */
+.icon-button {
+  position: relative;
+}
+
+.icon-button.has-badge::after {
+  content: '';
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #fbf5ea;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* « ! » au-dessus de Moustache (positionné en JS) */
+.cat-bubble {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50% 50% 50% 8px;
+  background: #fff6e0;
+  box-shadow: 0 4px 14px rgba(61, 74, 82, 0.25);
+  color: var(--accent);
+  font: inherit;
+  font-size: calc(20px * var(--text-scale, 1));
+  font-weight: 800;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -100%);
+  animation: bob 1.6s ease-in-out infinite;
+}
+
+/* Carnet : les 4 objectifs d'une espèce */
+.journal-objectives {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.journal-objective {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(61, 74, 82, 0.06);
+  font-size: calc(11px * var(--text-scale, 1));
+  font-variant-numeric: tabular-nums;
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.journal-objective.is-done {
+  background: #fff1c7;
+  color: #a36a14;
+  font-weight: 700;
+  opacity: 1;
+  filter: none;
+}
+
+.journal-variant {
+  font-size: calc(13px * var(--text-scale, 1));
+  font-weight: 700;
+  color: #a36a14;
+}
+
+/* Carte de prise : palier, variante, récompenses */
+.catch-badges {
+  flex-wrap: wrap;
+}
+
+.catch-badge.is-nice {
+  background: #e6eef2;
+  color: #4f6a7a;
+}
+
+.catch-badge.is-trophy,
+.catch-badge.is-variant {
+  background: linear-gradient(90deg, #ffe3a3, #ffd0e0);
+  color: #8a4f14;
+}
+
+.catch-card.is-variant .catch-name {
+  background: linear-gradient(90deg, #c9861c, #d4589a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.catch-rewards {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: rgba(255, 241, 199, 0.7);
+  font-size: calc(13px * var(--text-scale, 1));
+  animation: fade-in 0.4s ease;
+}
+
+.catch-reward {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+}
+
+.catch-reward-shells {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Ponton de Moustache (même cadre que le carnet) */
+.cabin-panel {
+  width: min(720px, 100%);
+}
+
+.cabin-wallet {
+  margin-left: auto;
+  margin-right: 10px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #fff1c7;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cabin-tabs {
+  align-self: flex-start;
+  width: fit-content;
+  margin: 12px 0 14px;
+}
+
+.cabin-tabs button {
+  padding: 7px 18px;
+  font-size: calc(14px * var(--text-scale, 1));
+}
+
+.cabin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cabin-cat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cabin-cat-avatar {
+  font-size: calc(40px * var(--text-scale, 1));
+  line-height: 1;
+}
+
+.cabin-speech {
+  position: relative;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(61, 74, 82, 0.08);
+  font-size: calc(14px * var(--text-scale, 1));
+}
+
+.cabin-note {
+  font-size: calc(12px * var(--text-scale, 1));
+  line-height: 1.4;
+  opacity: 0.7;
+}
+
+.request-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(61, 74, 82, 0.08);
+}
+
+.request-card.is-done {
+  background: #f3f7ee;
+}
+
+.request-icon {
+  font-size: calc(24px * var(--text-scale, 1));
+}
+
+.request-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.request-text {
+  font-size: calc(14px * var(--text-scale, 1));
+  font-weight: 600;
+}
+
+.request-bar {
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(61, 74, 82, 0.1);
+}
+
+.request-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: #8fb28a;
+  transform-origin: left center;
+}
+
+.request-progress {
+  font-size: calc(11px * var(--text-scale, 1));
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+.request-reward {
+  font-size: calc(14px * var(--text-scale, 1));
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.is-done .request-reward {
+  color: #5f8a58;
+}
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 8px;
+}
+
+.shop-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(61, 74, 82, 0.08);
+}
+
+.shop-item.is-locked,
+.shop-item.is-tooExpensive {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.shop-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  font-size: calc(24px * var(--text-scale, 1));
+}
+
+.shop-icon.is-swatch {
+  width: 28px;
+  height: 28px;
+  margin: 4px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(61, 74, 82, 0.2);
+}
+
+.shop-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.shop-name {
+  font-size: calc(14px * var(--text-scale, 1));
+  font-weight: 700;
+}
+
+.shop-description {
+  font-size: calc(12px * var(--text-scale, 1));
+  line-height: 1.35;
+  opacity: 0.75;
+}
+
+.shop-action {
+  flex: none;
+  padding: 7px 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-size: calc(13px * var(--text-scale, 1));
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shop-action:disabled {
+  background: rgba(61, 74, 82, 0.12);
+  color: rgba(61, 74, 82, 0.55);
+  cursor: default;
+}
+
+.shop-status {
+  flex: none;
+  max-width: 110px;
+  font-size: calc(12px * var(--text-scale, 1));
+  text-align: right;
+  opacity: 0.6;
+}
+
+.shop-status.is-owned {
+  color: #5f8a58;
+  font-weight: 700;
+  opacity: 1;
+}
+
+/* Carnet : un titre par lieu */
+.journal-place {
+  margin: 16px 0 8px;
+  font-size: calc(16px * var(--text-scale, 1));
+  font-weight: 700;
+}
+
+.journal-places > .journal-place:first-child {
+  margin-top: 0;
+}
+
+/* Carte des lieux (ponton) */
+.place-card .shop-icon {
+  font-size: calc(30px * var(--text-scale, 1));
+}
+
+.place-card.is-locked .shop-icon {
+  filter: grayscale(0.8);
+  opacity: 0.6;
+}
+
+.place-lock {
+  margin-top: 4px;
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 600;
+  color: #8a6a3a;
+}
+
+/* Départ vers un autre lieu : voile pendant le rechargement */
+.travel-veil {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  background: linear-gradient(#9fcbe6, #f3dcc4);
+  font-size: calc(20px * var(--text-scale, 1));
+  font-weight: 700;
+  text-align: center;
+  pointer-events: auto;
+  animation: fade-in 0.8s ease both;
+}
+
+/* Carte de prise : garder au vivier */
+.catch-keep {
+  display: block;
+  margin: 0 auto 8px;
+  padding: 7px 16px;
+  border: none;
+  border-radius: 999px;
+  background: #4f9fa8;
+  color: #fff;
+  font: inherit;
+  font-size: calc(14px * var(--text-scale, 1));
+  font-weight: 700;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.catch-keep:disabled {
+  background: rgba(61, 74, 82, 0.12);
+  color: rgba(61, 74, 82, 0.6);
+  cursor: default;
+}
+
+.catch-keep.is-kept {
+  background: #e3f0e0;
+  color: #5f8a58;
+}
+
+/* Ponton : poisson du jour, vivier */
+.cabin-daily {
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: #fff4d6;
+  font-size: calc(13px * var(--text-scale, 1));
+  line-height: 1.4;
+}
+
+.cabin-daily:empty {
+  display: none;
+}
+
+.pen-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pen-header .cabin-wallet {
+  margin: 0;
+}
+
+.kept-thumb {
+  flex: none;
+  width: 72px;
+  aspect-ratio: 16 / 9;
+  object-fit: contain;
+}
+
+.kept-fish.is-variant .shop-name {
+  color: #a36a14;
+}
+
+/* Vue rapprochée du vivier : l'interface de jeu s'efface */
+#hud.is-viewing .tackle,
+#hud.is-viewing .hud-prompt,
+#hud.is-viewing .hud-notice,
+#hud.is-viewing .touch-stick,
+#hud.is-viewing .cat-bubble {
+  display: none;
+}
+
+.pen-view {
+  position: absolute;
+  top: calc(16px + var(--safe-top));
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 32px);
+  padding: 6px 6px 6px 16px;
+  border-radius: 999px;
+  background: var(--panel);
+  box-shadow: 0 4px 16px rgba(61, 74, 82, 0.15);
+  font-weight: 700;
+  pointer-events: auto;
+  transform: translateX(-50%);
+  animation: fade-in 0.4s ease;
+}
+
+.pen-view-title {
+  white-space: nowrap;
+}
+
+/* Tutoriel : bulle de Moustache en haut à gauche (elle ne bloque pas le jeu) */
+.tutorial {
+  position: absolute;
+  top: calc(64px + var(--safe-top));
+  left: calc(16px + var(--safe-left));
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  width: min(calc(360px * var(--text-scale, 1)), calc(100% - 32px));
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: rgba(251, 245, 234, 0.95);
+  box-shadow: 0 6px 20px rgba(40, 52, 60, 0.2);
+}
+
+.tutorial.is-new {
+  animation: pop-in 0.35s ease-out;
+}
+
+.tutorial-avatar {
+  font-size: calc(30px * var(--text-scale, 1));
+  line-height: 1;
+}
+
+.tutorial-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tutorial-text {
+  font-size: calc(14px * var(--text-scale, 1));
+  line-height: 1.4;
+}
+
+.tutorial-counter {
+  font-size: calc(11px * var(--text-scale, 1));
+  opacity: 0.55;
+}
+
+.tutorial-skip {
+  flex: none;
+  padding: 3px 8px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(61, 74, 82, 0.08);
+  color: var(--ink);
+  font: inherit;
+  font-size: calc(12px * var(--text-scale, 1));
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#hud.is-viewing .tutorial {
+  display: none;
+}
+
+/* Réglages : touches du clavier */
+.key-button {
+  min-width: 56px;
+  padding: 5px 12px;
+  border: 2px solid rgba(61, 74, 82, 0.15);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--ink);
+  font: inherit;
+  font-size: calc(14px * var(--text-scale, 1));
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.key-button.is-listening {
+  border-color: var(--accent);
+  font-weight: 400;
+}
+
+.settings-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-note {
+  font-size: calc(12px * var(--text-scale, 1));
+  opacity: 0.65;
+}
+
+.settings-note:empty {
+  display: none;
+}
+
+.settings-note.is-warning {
+  color: var(--error);
+  opacity: 1;
+}
+
+/* Jauge de tension lisible sans les couleurs : rayures et « Relâche ! » à l'approche du maximum */
+.reel-warning {
+  margin-top: 4px;
+  font-size: calc(13px * var(--text-scale, 1));
+  font-weight: 800;
+  color: var(--error);
+  text-align: center;
+  animation: breathe 0.6s ease-in-out infinite;
+}
+
+.reel-bar.is-high .reel-fill {
+  background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.45) 0 5px, transparent 5px 10px);
+}
+
+/* « Moins d'animations » : l'interface ne bouge plus (les fondus deviennent instantanés) */
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* --- Écran tactile (classe is-touch posée par src/core/pointerMode.ts) --- */
+
+/* Joystick pour ramer, en bas à gauche */
+.touch-stick {
+  position: absolute;
+  left: calc(24px + var(--safe-left));
+  bottom: calc(24px + var(--safe-bottom));
+  width: 120px;
+  height: 120px;
+  border: 2px solid rgba(251, 245, 234, 0.75);
+  border-radius: 50%;
+  background: rgba(251, 245, 234, 0.3);
+  box-shadow: 0 4px 16px rgba(61, 74, 82, 0.15);
+  pointer-events: auto;
+  touch-action: none;
+  transition: opacity 0.3s ease;
+}
+
+.touch-stick-knob {
+  position: absolute;
+  inset: 0;
+  width: 52px;
+  height: 52px;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgba(61, 74, 82, 0.25);
+}
+
+/* Ligne à l'eau : la barque ne bouge pas, le joystick s'efface */
+.touch-stick.is-away {
+  opacity: 0;
+  pointer-events: none;
+}
+
+html:not(.is-touch) .touch-stick,
+#hud.is-title .touch-stick {
+  display: none;
+}
+
+/* Cibles plus grandes pour le doigt, sans les raccourcis clavier */
+.is-touch .icon-button {
+  width: 44px;
+  height: 40px;
+  font-size: calc(18px * var(--text-scale, 1));
+}
+
+.is-touch .bait {
+  min-height: 40px;
+  padding: 6px 12px;
+}
+
+.is-touch .bait kbd {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  /* Tant que le joystick est affiché, l'invite occupe la place à sa droite */
+  .is-touch #hud:has(.touch-stick:not(.is-away)) .hud-prompt {
+    left: calc(160px + var(--safe-left));
+    right: calc(16px + var(--safe-right));
+    max-width: none;
+    transform: none;
+    border-radius: 16px;
+    font-size: calc(13px * var(--text-scale, 1));
+  }
+}
+
+/* Écrans bas (téléphone en paysage) : la carte de prise passe à droite, plus compacte */
+@media (max-height: 520px) {
+  .catch-card {
+    left: auto;
+    right: calc(12px + var(--safe-right));
+    bottom: calc(12px + var(--safe-bottom));
+    width: min(340px, 46%);
+    max-height: calc(100% - 24px);
+    overflow-y: auto;
+    padding: 10px 14px 8px;
+    transform: none;
+    animation-name: fade-in;
+  }
+
+  .catch-name {
+    margin-top: 2px;
+    font-size: calc(18px * var(--text-scale, 1));
+  }
+
+  .catch-size {
+    font-size: calc(15px * var(--text-scale, 1));
+  }
+
+  .catch-description {
+    display: none;
+  }
+
+  .catch-rewards {
+    margin-top: 6px;
+    font-size: calc(12px * var(--text-scale, 1));
+  }
+}
+
+@media (max-width: 640px) {
+  .bait-name,
+  .tackle-description {
+    display: none;
+  }
+
+  .tackle {
+    max-width: calc(100% - 32px);
+  }
+
+  /* Sous le panneau du haut, qui prend toute la largeur */
+  .tutorial {
+    top: calc(132px + var(--safe-top));
+  }
+
+  /* L'invite peut tenir sur deux lignes : les jauges montent un peu */
+  .power,
+  .reel {
+    bottom: calc(88px + var(--safe-bottom));
+  }
+
+  .catch-description {
+    font-size: calc(13px * var(--text-scale, 1));
+  }
+
+  .journal-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+
+  .shop-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* En-tête du ponton : titre et ✕ sur la première ligne, coquillages dessous */
+  .cabin-panel .journal-header {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+
+  .cabin-panel .journal-title {
+    flex: 1 1 calc(100% - 50px);
+    font-size: calc(20px * var(--text-scale, 1));
+  }
+
+  .cabin-panel .journal-header > .cabin-wallet {
+    order: 1;
+    margin: 0;
+  }
+
+  /* Quatre onglets : ils se partagent toute la largeur */
+  .cabin-tabs {
+    width: 100%;
+  }
+
+  .cabin-tabs button {
+    flex: 1;
+    padding: 7px 6px;
+    font-size: calc(13px * var(--text-scale, 1));
+  }
+
+  .journal-description {
+    display: none;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+@keyframes bob {
+  50% {
+    transform: translate(-50%, calc(-100% - 5px));
+  }
+}
+
+@keyframes breathe {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes toast {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  12%,
+  75% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes strain {
+  to {
+    box-shadow: 0 0 0 3px rgba(233, 94, 72, 0.55);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 16px);
+  }
+}
+
+@keyframes pop {
+  from {
+    transform: translate(-50%, -100%) scale(0.4);
+  }
+}

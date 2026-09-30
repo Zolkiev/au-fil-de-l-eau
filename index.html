@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#cfe3ea" />
+    <!-- Ajouté à l'écran d'accueil, le jeu s'ouvre en plein écran -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <!-- Nom court sous l’icône (au-delà de ~12 caractères, l’iPhone le coupe) -->
+    <meta name="apple-mobile-web-app-title" content="Fil de l’eau" />
+    <meta name="description" content="Un petit jeu de pêche tout doux : une barque, un lac, et tout le temps du monde." />
+    <title>Au fil de l’eau</title>
+    <!-- Application installable (PWA) : manifeste et icônes dans assets/, service worker produit au build -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <div id="hud">
+      <div id="loading" class="loading">
+        <h1>Au fil de l’eau</h1>
+        <p class="loading-text">Préparation du lac…</p>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

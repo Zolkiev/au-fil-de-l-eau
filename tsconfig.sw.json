@@ -1,0 +1,10 @@
+{
+  // Service worker : mêmes règles, mais les types d'un worker au lieu de ceux de la page
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"],
+    "types": []
+  },
+  "include": ["src/pwa/serviceWorker.ts"],
+  "exclude": []
+}

@@ -1,0 +1,45 @@
+# Met le jeu en ligne sur GitHub Pages à chaque push sur main
+# (réglage du dépôt nécessaire : Settings › Pages › Source : « GitHub Actions »).
+name: Mise en ligne
+
+on:
+  push:
+    branches: [main]
+  # Bouton « Run workflow » dans l'onglet Actions, pour relancer à la main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Une seule mise en ligne à la fois ; la plus récente gagne
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Vérifie les types (page et service worker), puis construit dist/
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
