@@ -136,7 +136,9 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
     proposées depuis le menu ;
   - polish visuel (en cours) : assets corrigés (faces qui clignotaient,
     décor qui flottait), éclairage revu, ombres du décor, nuages, lumières
-    de nuit (lanternes, fenêtres, faisceau du phare).
+    de nuit (lanternes, fenêtres, faisceau du phare), ombres douces cuites,
+    petite flore (herbe, fleurs, buissons, galets), matériel dans la
+    barque.
 
   Voir `docs/PROGRESS.md`. En attente du test de l'utilisateur.
 - Dépôt git **public** : https://github.com/Zolkiev/au-fil-de-l-eau (branche
@@ -423,4 +425,14 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   présente, intensité 0 le jour : pas de recompilation des shaders). L'Empty
   `beacon` (`LevelData.beacon`) porte le faisceau tournant d'un phare (cônes
   additifs dont la couleur des sommets s'éteint avec la distance).
+- Assets, finitions : `generate_assets.py` cuit l'occlusion ambiante des
+  niveaux dans « Col » (`petite_peche/ambient.py`, Cycles, ~quelques
+  secondes par niveau : l'appel MCP peut dépasser son délai, Blender finit
+  quand même). La flore (`petite_peche/flora.py`) a son propre tirage
+  (`build_flora(..., seed=...)`) et des règles de placement par niveau
+  (`lake_flora`, `river_flora`, `cove_flora`). La variation de teinte du
+  terrain (`patchy` dans `common.py`) ne consomme pas le tirage aléatoire :
+  les arbres et rochers ne bougent pas. Niveaux exportés : ~0,9 à 1 Mo.
+- Ombres : la petite flore (`deco_grass*`, `deco_flowers*`,
+  `deco_pebbles*`) ne projette pas d'ombre (`setupShadows`).
 

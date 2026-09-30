@@ -145,6 +145,24 @@ def build_fittings(builder):
         builder.box((side * 0.3 - side * 0.04, -1.05, 0.2), (0.16, 0.5, 0.02), PAINT, rotation=oar)
     builder.box((0.4, 1.36, 0.72), (0.04, 0.04, 0.62), WOOD_DARK)
     builder.box((0.4, 1.36, 1.12), (0.16, 0.16, 0.03), WOOD_DARK)
+    build_gear(builder)
+
+
+# Dessus du plancher : les objets posés au fond y sont enfoncés de 5 mm (pas de faces confondues)
+FLOOR_TOP = -0.135
+
+
+def build_gear(builder):
+    """Petit matériel au fond de la barque : boîte à pêche, seau, rouleau de corde (loin des rames)."""
+    # Boîte à pêche verte, avec son couvercle un peu plus grand et une poignée
+    builder.box((0.2, 0.72, FLOOR_TOP - 0.005 + 0.07), (0.3, 0.18, 0.14), rgba(0x3f6e5a))
+    builder.box((0.2, 0.72, FLOOR_TOP + 0.147), (0.31, 0.19, 0.025), rgba(0x2f5a4a))
+    builder.box((0.2, 0.72, FLOOR_TOP + 0.172), (0.12, 0.025, 0.03), WOOD_DARK)
+    # Seau de métal, plus large en haut
+    builder.cone((-0.24, 0.85, FLOOR_TOP - 0.005 + 0.1), 0.085, 0.11, 0.2, 10, rgba(0x8fa3ad))
+    # Rouleau de corde à l'avant, avec son creux plus sombre
+    builder.cone((0.0, -0.8, FLOOR_TOP - 0.005 + 0.025), 0.12, 0.12, 0.05, 12, rgba(0xd9c49a))
+    builder.cone((0.0, -0.8, FLOOR_TOP + 0.024), 0.05, 0.05, 0.05, 10, rgba(0xa8905f))
 
 
 def build_lantern(collection, boat):

@@ -133,16 +133,19 @@ export function parseLevel(root: Object3D, source: LevelData['source']): LevelDa
 }
 
 /**
- * Ombres du décor : tout le décor les reçoit ; tout sauf le terrain en
- * projette (le relief est doux, et c'est la plus grande surface à dessiner).
+ * Ombres du décor : tout le décor les reçoit. En projettent tous les objets
+ * sauf le terrain (relief doux, et la plus grande surface à dessiner) et la
+ * petite flore (`deco_grass*`, `deco_flowers*`, `deco_pebbles*` : ombre
+ * invisible à cette taille, mais des milliers de triangles à redessiner).
  */
 function setupShadows(decor: readonly Object3D[]): void {
   for (const object of decor) {
-    const ground = blenderName(object).startsWith('deco_terrain');
+    const name = blenderName(object);
+    const casts = !name.startsWith('deco_terrain') && !/^deco_(grass|flowers|pebbles)/.test(name);
     object.traverse((child) => {
       if (!(child instanceof Mesh)) return;
       child.receiveShadow = true;
-      child.castShadow = !ground;
+      child.castShadow = casts;
     });
   }
 }

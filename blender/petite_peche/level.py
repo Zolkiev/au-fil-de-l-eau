@@ -11,8 +11,9 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import (Ground, emissive_material, emissive_object, MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene,
+from .common import (Ground, patchy, emissive_material, emissive_object, MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene,
                      oriented_quad, palette_material, rgba, smoothstep)
+from .flora import Spot, build_flora, far_from
 
 SCENE_NAME = "lake_01"
 
@@ -100,7 +101,9 @@ def build():
     jetty = build_jetty(groups["Decor"], material, south)
     build_cabin(groups["Decor"], material, cabin)
     pen = build_fish_pen(groups["Decor"], groups["Reperes"], material, Vector((2.4, -(south + 5.6))))
-    build_trees(groups["Decor"], material, rng, ground, avoid=[(cabin, 7.0), (jetty, 6.0), (pen, 3.5)])
+    avoid = [(cabin, 7.0), (jetty, 6.0), (pen, 3.5)]
+    build_trees(groups["Decor"], material, rng, ground, avoid=avoid)
+    build_flora(groups["Decor"], material, ground, seed=107, half_size=70, spots=lake_flora(ground, avoid))
     build_colliders(groups["Collisions"], material, rock_spots, south)
     build_zones(groups["Zones"], rock_spots, reed_spots, south)
     build_markers(groups["Reperes"], south)
@@ -120,7 +123,8 @@ def build_terrain(collection, material, rng):
             for triangle in triangles:
                 normal = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]).normalized()
                 height = sum(p.z for p in triangle) / 3
-                builder.polygon(triangle, terrain_color(height, 1 - normal.z, rng))
+                middle = sum(triangle, Vector()) / 3
+                builder.polygon(triangle, patchy(terrain_color(height, 1 - normal.z, rng), middle.x, middle.y))
     return builder.to_object("deco_terrain", material, collection)
 
 
@@ -283,6 +287,28 @@ def build_cabin(collection, material, position):
     window = MeshBuilder()
     window.box((x - 0.7, y + 1.62, z + 1.4), (0.9, 0.06, 0.7), rgba(0x8fa9b4))
     emissive_object(window, "deco_cabin_window", window_material(), collection)
+
+
+def lake_flora(ground, avoid):
+    """Où pousse la flore du lac : sur la berge, près de l'eau, loin de la cabane, du ponton et du vivier."""
+    clear = far_from([((center.x, center.y), radius) for center, radius in avoid])
+
+    def meadow(x, y):
+        land = -lake_distance(x, y)
+        return 1.5 < land < 35 and ground.height(x, y) > 0.75 and ground.slope(x, y) < 0.4 and clear(x, y)
+
+    def island(x, y):
+        return (Vector((x, y)) - ISLAND_CENTER).length < 2.3 and ground.height(x, y) > 0.55
+
+    def beach(x, y):
+        return 0 < -lake_distance(x, y) < 4 and 0.1 < ground.height(x, y) < 0.5 and clear(x, y)
+
+    return {
+        "grass": Spot(380, lambda x, y: meadow(x, y) or island(x, y)),
+        "flowers": Spot(90, meadow),
+        "bushes": Spot(60, lambda x, y: meadow(x, y) and -lake_distance(x, y) > 3),
+        "pebbles": Spot(70, beach),
+    }
 
 
 def build_trees(collection, material, rng, ground, avoid):

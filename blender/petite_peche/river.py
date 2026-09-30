@@ -13,7 +13,8 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import Ground, MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
+from .common import Ground, MeshBuilder, patchy, circle_points, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
+from .flora import Spot, build_flora
 from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree, lamp_post, tree_base
 
 SCENE_NAME = "river_01"
@@ -105,6 +106,7 @@ def build():
     build_reeds(groups["Decor"], material, rng, ground)
     build_bridge(groups["Decor"], material)
     build_trees(groups["Decor"], material, rng, ground)
+    build_flora(groups["Decor"], material, ground, seed=211, half_size=70, spots=river_flora(ground))
     build_colliders(groups["Collisions"], material, boulders)
     build_zones(groups["Zones"])
     build_markers(groups["Reperes"])
@@ -124,8 +126,8 @@ def build_terrain(collection, material, rng):
             for triangle in triangles:
                 normal = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]).normalized()
                 height = sum(p.z for p in triangle) / 3
-                x = sum(p.x for p in triangle) / 3
-                builder.polygon(triangle, terrain_color(height, 1 - normal.z, x, rng))
+                middle = sum(triangle, Vector()) / 3
+                builder.polygon(triangle, patchy(terrain_color(height, 1 - normal.z, middle.x, rng), middle.x, middle.y))
     return builder.to_object("deco_terrain", material, collection)
 
 
@@ -243,6 +245,25 @@ def build_bridge(collection, material):
         # Lanterne sur chaque culée, côté aval (-X), face à la barque
         lamp_post(builder, collection, "deco_bridge_lamp", BRIDGE_X - 1.4, y, BRIDGE_END + 0.1)
     builder.to_object("deco_bridge", material, collection)
+
+
+def river_flora(ground):
+    """Où pousse la flore de la rivière : sur les berges, loin du pont et de la cascade ; galets au bord de l'eau."""
+    bridge = Vector((BRIDGE_X, center(BRIDGE_X)))
+
+    def land(x, y):
+        return abs(y - center(x)) - half_width(x)
+
+    def bank(x, y, near, far):
+        return (near < land(x, y) < far and ground.height(x, y) - fall_rise(x) > 0.5 and ground.slope(x, y) < 0.4
+                and (Vector((x, y)) - bridge).length > 6 and abs(x - FALL_TOP) > 5)
+
+    return {
+        "grass": Spot(380, lambda x, y: bank(x, y, 1.5, 30)),
+        "flowers": Spot(90, lambda x, y: bank(x, y, 2, 30)),
+        "bushes": Spot(60, lambda x, y: bank(x, y, 3, 25)),
+        "pebbles": Spot(80, lambda x, y: -0.5 < land(x, y) < 2.5 and ground.height(x, y) - fall_rise(x) > 0.05 and abs(x - FALL_TOP) > 5),
+    }
 
 
 def build_trees(collection, material, rng, ground):

@@ -98,6 +98,18 @@ def emissive_material(name, base_hex, emission_hex, strength):
 
 # --- Construction de meshes -----------------------------------------------------------
 
+def patchy(color, x, y):
+    """
+    Variation douce de teinte selon la position (taches de 15 à 40 m) : les
+    grandes facettes du terrain paraissent moins uniformes. Sans tirage
+    aléatoire : le reste du niveau ne bouge pas.
+    """
+    light = 0.07 * (math.sin(x * 0.11 + 1.7) * math.cos(y * 0.09 - 0.4) + 0.6 * math.sin((x + y) * 0.23))
+    warm = 0.06 * math.sin(x * 0.05 - y * 0.07 + 2.1)
+    r, g, b, a = color
+    return (r * (1 + light + warm), g * (1 + light), b * (1 + light - warm), a)
+
+
 def emissive_object(builder, name, material, collection, parent=None):
     """
     Objet à matériau émissif (verre de lanterne, fenêtre) : dans le jeu, il
@@ -124,6 +136,12 @@ class Ground:
     def height(self, x, y):
         hit = self.tree.ray_cast(Vector((x, y, 1000.0)), Vector((0, 0, -1)))
         return hit[0].z if hit[0] is not None else 0.0
+
+    def slope(self, x, y, step=0.6):
+        """Pente locale (dénivelé par mètre) autour de (x, y)."""
+        here = self.height(x, y)
+        around = [self.height(x + dx, y + dy) for dx, dy in ((step, 0), (-step, 0), (0, step), (0, -step))]
+        return max(abs(h - here) for h in around) / step
 
     def lowest_under(self, x, y, radius, samples=8):
         """Point le plus bas du terrain sous un disque : un tronc ou un socle posé là touche le sol partout."""
@@ -153,6 +171,22 @@ class MeshBuilder:
         face.normal_update()
         self.paint([face], color)
         return face
+
+    def spike(self, foot, tip, radius, color):
+        """
+        Pyramide à 3 faces sans base, du pied `foot` à la pointe `tip` : un brin
+        d'herbe très léger (sa base est enfoncée dans le sol, invisible).
+        """
+        axis = (tip - foot).normalized()
+        side = axis.orthogonal().normalized()
+        other = axis.cross(side)
+        base = [self.bm.verts.new(foot + (side * math.cos(a) + other * math.sin(a)) * radius) for a in (0, 2 * math.pi / 3, 4 * math.pi / 3)]
+        top = self.bm.verts.new(tip)
+        faces = [self.bm.faces.new((base[i], base[(i + 1) % 3], top)) for i in range(3)]
+        for face in faces:
+            face.normal_update()
+        self.paint(faces, color)
+        return faces
 
     def cone(self, location, radius1, radius2, depth, segments, color, rotation=None):
         """Cône ou cylindre le long de Z (centré), éventuellement tourné."""

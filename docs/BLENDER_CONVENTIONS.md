@@ -48,6 +48,19 @@ sources :
   ⚠ Il **remplace tout le fichier** : à ne relancer que pour repartir de zéro
   ou après avoir modifié les générateurs. Après des retouches à la main,
   utilise seulement l'export.
+- **Ombres douces cuites** : à la fin de `generate_assets.py`, l'occlusion
+  ambiante (la part de ciel que voit chaque coin de face) est calculée avec
+  Cycles et multipliée dans l'attribut « Col » du décor des niveaux
+  (`petite_peche/ambient.py`) : sol sous les arbres, pied des rochers,
+  dessous du ponton. Les couleurs de « Col » des niveaux sont donc
+  légèrement assombries par endroits ; après une retouche de couleur à la
+  main, l'ombre douce de cet endroit n'est plus recalculée (relance la
+  génération pour tout refaire). La barque n'est pas concernée.
+- **Petite flore** (`petite_peche/flora.py`) : `deco_grass_sway` (touffes
+  d'herbe par taches), `deco_flowers_sway` (massifs de fleurs),
+  `deco_bushes` (buissons), `deco_pebbles` (galets), semés près de l'eau avec
+  leur propre tirage aléatoire (sans déplacer le reste du niveau). Dans le
+  jeu, l'herbe, les fleurs et les galets ne projettent pas d'ombre.
 - **`blender/check_assets.py`** contrôle toutes les scènes avant l'export :
   - **faces superposées** : deux faces dans le même plan qui se recouvrent
     clignotent dans le jeu (« z-fighting »). Typiquement deux pavés de même

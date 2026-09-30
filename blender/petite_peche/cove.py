@@ -12,7 +12,8 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import Ground, MeshBuilder, circle_points, emissive_object, emissive_material, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
+from .common import Ground, MeshBuilder, patchy, circle_points, emissive_object, emissive_material, empty, flat_polygon_object, new_collection, new_scene, palette_material, rgba, smoothstep
+from .flora import Spot, build_flora, far_from
 from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree, lamp_post, tree_base, window_material
 
 SCENE_NAME = "cove_01"
@@ -96,6 +97,7 @@ def build():
     build_hut_and_driftwood(groups["Decor"], material)
     build_buoys(groups["Decor"], material)
     build_trees(groups["Decor"], material, rng, ground)
+    build_flora(groups["Decor"], material, ground, seed=331, half_size=70, spots=cove_flora(ground))
     build_colliders(groups["Collisions"], material, rocks)
     build_zones(groups["Zones"])
     build_markers(groups["Reperes"])
@@ -115,7 +117,8 @@ def build_terrain(collection, material, rng):
             for triangle in triangles:
                 normal = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]).normalized()
                 height = sum(p.z for p in triangle) / 3
-                builder.polygon(triangle, terrain_color(height, 1 - normal.z, rng))
+                middle = sum(triangle, Vector()) / 3
+                builder.polygon(triangle, patchy(terrain_color(height, 1 - normal.z, rng), middle.x, middle.y))
     return builder.to_object("deco_terrain", material, collection)
 
 
@@ -242,6 +245,24 @@ def build_buoys(collection, material):
     for x0, x1 in zip(xs, xs[1:]):
         builder.box(((x0 + x1) / 2, BUOYS_Y, 0.08), (x1 - x0, 0.04, 0.04), rgba(0xd8c8a0))
     builder.to_object("deco_buoys", material, collection)
+
+
+def cove_flora(ground):
+    """Où pousse la flore de la crique : prairies au-dessus de la plage ; galets sur le sable."""
+    clear = far_from([((LIGHTHOUSE_X, coast(LIGHTHOUSE_X) - 6), 5.0), ((-6.0, coast(-6.0) - 11), 4.5), ((PIER_X, coast(PIER_X)), 4.0)])
+
+    def meadow(x, y):
+        return 2 < coast(x) - y < 40 and ground.height(x, y) > 1.8 and ground.slope(x, y) < 0.4 and clear(x, y)
+
+    def beach(x, y):
+        return 0.5 < coast(x) - y < 14 and 0.25 < ground.height(x, y) < 1.5 and clear(x, y)
+
+    return {
+        "grass": Spot(300, meadow),
+        "flowers": Spot(70, meadow),
+        "bushes": Spot(45, meadow),
+        "pebbles": Spot(160, beach),
+    }
 
 
 def build_trees(collection, material, rng, ground):

@@ -19,8 +19,50 @@
 | + | Application installable (PWA) et jeu hors connexion | ✅ Livré le 2026-09-30, **à tester** |
 | + | Polish visuel (1) : assets corrigés, éclairage, ombres du décor, nuages | ✅ Livré le 2026-09-30, **à tester** |
 | + | Polish visuel (2) : lumières de nuit, correction de l'acné d'ombre | ✅ Livré le 2026-09-30, **à tester** |
+| + | Polish visuel (3) : ombres douces cuites, petite flore, matériel dans la barque | ✅ Livré le 2026-09-30, **à tester** |
 
 ---
+
+## Polish visuel (3) : ombres douces, flore, matériel
+
+### Livré
+
+- **Ombres douces au pied du décor** : l'occlusion ambiante (la part de
+  ciel que voit chaque point) est calculée une fois dans Blender (Cycles)
+  et intégrée aux couleurs du décor des trois lieux. Le sol s'assombrit
+  sous les arbres, au pied des rochers, sous le ponton ; le dessous du
+  feuillage est plus sombre, les planches du ponton plus contrastées. Aucun
+  coût dans le jeu. Réglages : `DISTANCE`, `STRENGTH` dans
+  `blender/petite_peche/ambient.py`.
+- **Petite flore** près de l'eau, dans les trois lieux :
+  - touffes d'herbe par taches, massifs de fleurs (blanches, jaunes, roses,
+    mauves, orangées), buissons, galets sur les plages et au bord de la
+    rivière ;
+  - l'herbe et les fleurs ondulent au vent comme les roseaux ;
+  - pas d'ombre projetée pour l'herbe, les fleurs et les galets (invisible
+    à cette taille, et coûteux).
+- **Terrain moins uniforme** : de grandes taches de teinte (plus claire,
+  plus chaude) cassent les grandes facettes.
+- **Matériel dans la barque** : boîte à pêche verte avec sa poignée, seau,
+  rouleau de corde.
+
+### Vérifications déjà faites
+
+- Contrôle des assets : rien à signaler. Deux corrections en route : des
+  corolles et des tiges voisines tombaient exactement à la même hauteur
+  (palier plat du terrain autour du lac) ; chaque fleur est maintenant un
+  peu penchée et enfoncée à sa façon.
+- Captures : berge et forêt de près, ponton, barque, vue de jeu en fin
+  d'après-midi.
+- Rendu : environ 80 000 triangles par image dans la vue de jeu (ombres
+  comprises).
+
+### Limites connues
+
+- Les niveaux passent d'environ 200 Ko à environ 1 Mo chacun (la flore),
+  soit environ 2,5 Mo de plus à télécharger pour le jeu hors connexion.
+- Les ombres douces sont calculées aux coins des faces : sur les grandes
+  facettes du terrain (2 m), elles restent larges et discrètes.
 
 ## Polish visuel (2) : lumières de nuit, acné d'ombre
 
