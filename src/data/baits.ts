@@ -1,3 +1,5 @@
+import { pick } from '../core/language';
+
 /**
  * Appâts, dans l'ordre des touches 1 à 6. Les trois premiers sont offerts ;
  * les autres s'achètent à la cabane de Moustache (voir src/data/shop.ts).
@@ -25,9 +27,9 @@ export interface Bait {
 export const BAITS: readonly Bait[] = [
   {
     id: 'worm',
-    name: 'Ver de terre',
+    name: pick('Ver de terre', 'Earthworm'),
     icon: '🪱',
-    description: 'L’appât à tout faire : presque tous les poissons y goûtent.',
+    description: pick('L’appât à tout faire : presque tous les poissons y goûtent.', 'The all-round bait: almost every fish will have a taste.'),
     waitFactor: 1,
     sizeFactor: 1,
     variantFactor: 1,
@@ -35,9 +37,9 @@ export const BAITS: readonly Bait[] = [
   },
   {
     id: 'maggot',
-    name: 'Asticots',
+    name: pick('Asticots', 'Maggots'),
     icon: '🐛',
-    description: 'Les touches arrivent vite, surtout chez les petits poissons.',
+    description: pick('Les touches arrivent vite, surtout chez les petits poissons.', 'Bites come quickly, especially from small fish.'),
     waitFactor: 0.75,
     sizeFactor: 1,
     variantFactor: 1,
@@ -45,9 +47,9 @@ export const BAITS: readonly Bait[] = [
   },
   {
     id: 'corn',
-    name: 'Grain de maïs',
+    name: pick('Grain de maïs', 'Sweetcorn'),
     icon: '🌽',
-    description: 'Il faut de la patience, mais les gros poissons en raffolent.',
+    description: pick('Il faut de la patience, mais les gros poissons en raffolent.', 'It takes patience, but big fish are mad about it.'),
     waitFactor: 1.35,
     sizeFactor: 0.85,
     variantFactor: 1,
@@ -55,9 +57,12 @@ export const BAITS: readonly Bait[] = [
   },
   {
     id: 'spinner',
-    name: 'Cuillère brillante',
+    name: pick('Cuillère brillante', 'Shiny spinner'),
     icon: '🥄',
-    description: 'Elle tournoie et scintille : les chasseurs (perche, sandre, brochet) ne résistent pas.',
+    description: pick(
+      'Elle tournoie et scintille : les chasseurs (perche, sandre, brochet) ne résistent pas.',
+      'It spins and glitters: the hunters (perch, zander, pike) cannot resist.',
+    ),
     waitFactor: 1.1,
     sizeFactor: 1,
     variantFactor: 1,
@@ -65,9 +70,12 @@ export const BAITS: readonly Bait[] = [
   },
   {
     id: 'boilie',
-    name: 'Bouillette parfumée',
+    name: pick('Bouillette parfumée', 'Scented boilie'),
     icon: '🍡',
-    description: 'Les poissons de fond (carpe, tanche, brème) la sentent de loin. Les prises sont plus grosses.',
+    description: pick(
+      'Les poissons de fond (carpe, tanche, brème) la sentent de loin. Les prises sont plus grosses.',
+      'Bottom feeders (carp, tench, bream) smell it from afar. Catches are bigger.',
+    ),
     waitFactor: 1.4,
     sizeFactor: 0.6,
     variantFactor: 1,
@@ -75,9 +83,12 @@ export const BAITS: readonly Bait[] = [
   },
   {
     id: 'fly',
-    name: 'Mouche dorée',
+    name: pick('Mouche dorée', 'Golden fly'),
     icon: '🪰',
-    description: 'Les poissons de surface l’adorent, et les variantes rares se montrent plus souvent.',
+    description: pick(
+      'Les poissons de surface l’adorent, et les variantes rares se montrent plus souvent.',
+      'Surface fish love it, and rare variants show up more often.',
+    ),
     waitFactor: 0.9,
     sizeFactor: 1,
     variantFactor: 2.5,

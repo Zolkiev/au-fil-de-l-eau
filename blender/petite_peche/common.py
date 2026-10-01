@@ -273,6 +273,20 @@ def empty(name, collection, location=(0, 0, 0), rotation=(0, 0, 0), scale=1.0, d
     return obj
 
 
+def find_spots(collection, points, is_free):
+    """
+    Empties `find_<n>` : les endroits où une trouvaille peut flotter (le jeu
+    en choisit quelques-uns chaque jour). `is_free(x, y)` doit dire si la
+    barque peut y passer : un point refusé arrête la génération, pour ne
+    jamais cacher une trouvaille hors d'atteinte.
+    """
+    for index, point in enumerate(points, start=1):
+        x, y = point[0], point[1]
+        if not is_free(x, y):
+            raise ValueError(f"find_{index} ({x:.1f}, {y:.1f}) n'est pas en eau libre")
+        empty(f"find_{index}", collection, location=(x, y, 0), display='SPHERE', size=0.6)
+
+
 def flat_polygon_object(name, collection, rings, material):
     """Mesh plat fait de polygones (listes de points 3D), affiché en fil de fer dans Blender."""
     builder = MeshBuilder()

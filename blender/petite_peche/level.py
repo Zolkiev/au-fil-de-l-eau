@@ -13,8 +13,8 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import (Ground, build_grid_terrain, emissive_material, emissive_object, MeshBuilder, circle_points, empty, flat_polygon_object,
-                     grid_coords, new_collection, new_scene, oriented_quad, palette_material, rgba, smoothstep)
+from .common import (Ground, build_grid_terrain, emissive_material, emissive_object, MeshBuilder, circle_points, empty, find_spots,
+                     flat_polygon_object, grid_coords, new_collection, new_scene, oriented_quad, palette_material, rgba, smoothstep)
 from .flora import Spot, build_flora, far_from
 
 SCENE_NAME = "lake_01"
@@ -132,6 +132,7 @@ def build():
     build_colliders(groups["Collisions"], material, rocks, south, north)
     build_zones(groups["Zones"], rocks, reeds)
     build_markers(markers, south)
+    build_finds(markers, rocks)
     return scene
 
 
@@ -542,6 +543,23 @@ def build_markers(collection, south):
     camera_position = Matrix.Translation(spawn.location) @ Matrix.Rotation(math.pi, 4, 'Z') @ Vector((0, 7, 3.2))
     empty("cam_default", collection, location=camera_position, display='SINGLE_ARROW', size=1.0)
     build_cat_marker(collection, south, spawn.location)
+
+
+# Trouvailles : (angle de la rive, distance à la rive), dans les baies et les recoins, loin du départ
+FIND_SPOTS = [(0.1, 8), (0.9, 7), (1.35, 8), (2.2, 6), (2.85, 9), (3.3, 6), (3.95, 8), (5.2, 7), (5.95, 6)]
+
+
+def build_finds(collection, rocks):
+    """Coins à trouvailles (`find_<n>`) : le long des rives, derrière la grande île et près de l'îlot."""
+    points = [point_from_shore(theta, inward) for theta, inward in FIND_SPOTS]
+    points += [ISLAND[0] + Vector((0, 9.5)), ISLET[0] + Vector((-6.5, 3.0))]
+    obstacles = [(ISLAND[0], island_radius(ISLAND)), (ISLET[0], island_radius(ISLET))]
+    obstacles += [spot for cluster in rocks for spot in cluster["spots"]]
+
+    def is_free(x, y):
+        return lake_distance(x, y) > 4 and all((Vector((x, y)) - center).length > radius + 2.5 for center, radius in obstacles)
+
+    find_spots(collection, points, is_free)
 
 
 def build_cat_marker(collection, south, spawn):

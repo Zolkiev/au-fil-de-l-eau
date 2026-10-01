@@ -15,8 +15,8 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import (Ground, MeshBuilder, build_grid_terrain, circle_points, empty, flat_polygon_object, grid_coords, new_collection, new_scene,
-                     palette_material, rgba, smoothstep)
+from .common import (Ground, MeshBuilder, build_grid_terrain, circle_points, empty, find_spots, flat_polygon_object, grid_coords, new_collection,
+                     new_scene, palette_material, rgba, smoothstep)
 from .flora import Spot, build_flora
 from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_shore_rock_at, add_tree, build_campfire, lamp_post, tree_base
 
@@ -134,6 +134,7 @@ def build():
     build_colliders(groups["Collisions"], material, boulders)
     build_zones(groups["Zones"])
     build_markers(markers)
+    build_finds(markers, boulders)
     return scene
 
 
@@ -359,6 +360,24 @@ def build_zones(collection):
     ]
     for name, position, radius in zones:
         empty(name, collection, location=(position.x, position.y, 0), rotation=flat, scale=radius, display='CIRCLE')
+
+
+# Trouvailles : (abscisse, écart au milieu de la rivière : -1 = contre la rive droite, 1 = contre la rive gauche), d'aval en amont
+FIND_SPOTS = [(-128, 0.6), (-108, -0.7), (-84, 0.7), (-60, -0.7), (-13, 0.8), (20, 0.65), (26, -0.65), (40, -0.7), (58, -0.6), (80, 0.6), (105, -0.5)]
+# Marge entre une trouvaille et la berge (m) : la barque doit pouvoir l'atteindre
+FIND_MARGIN = 4.2
+
+
+def build_finds(collection, boulders):
+    """Coins à trouvailles (`find_<n>`) : dans les anses, sous le pont, dans les bras de l'île, au pied de la cascade."""
+    points = [bank_point(x, side * (half_width(x) - FIND_MARGIN)) for x, side in FIND_SPOTS]
+
+    def is_free(x, y):
+        in_channel = abs(y - center(x)) < half_width(x) - 3.5 and DOWNSTREAM_END + 3 < x < FALL_FOOT - 5
+        off_isle = math.hypot((x - ISLE_X) / (ISLE_LENGTH + 2.5), (y - center(ISLE_X)) / (ISLE_WIDTH + 2.5)) > 1
+        return in_channel and off_isle and all((Vector((x, y)) - position).length > radius + 2.5 for position, radius in boulders)
+
+    find_spots(collection, points, is_free)
 
 
 def build_markers(collection):

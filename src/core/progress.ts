@@ -45,6 +45,7 @@ export class Progress {
     this.progression.events.on('shop', () => this.store.request());
     this.progression.events.on('requests', () => this.store.request());
     this.progression.events.on('pen', () => this.store.request());
+    this.progression.events.on('finds', () => this.store.request());
   }
 
   /** Branche les statistiques et la sauvegarde sur la pêche ; `world` donne l'heure et l'appât actuels. */

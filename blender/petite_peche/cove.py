@@ -14,8 +14,8 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import (Ground, MeshBuilder, build_grid_terrain, circle_points, emissive_object, emissive_material, empty, flat_polygon_object,
-                     grid_coords, new_collection, new_scene, palette_material, rgba, smoothstep)
+from .common import (Ground, MeshBuilder, build_grid_terrain, circle_points, emissive_object, emissive_material, empty, find_spots,
+                     flat_polygon_object, grid_coords, new_collection, new_scene, palette_material, rgba, smoothstep)
 from .flora import Spot, build_flora, far_from
 from .level import ROCK_GREY, WOOD, WOOD_DARK, WOOD_LIGHT, add_tree, build_campfire, lamp_post, tree_base, window_material
 
@@ -116,6 +116,7 @@ def build():
     build_colliders(groups["Collisions"], material, rocks)
     build_zones(groups["Zones"])
     build_markers(markers)
+    build_finds(markers, rocks)
     return scene
 
 
@@ -347,6 +348,24 @@ def build_zones(collection):
     ]
     for name, position, radius in zones:
         empty(name, collection, location=(position.x, position.y, 0), rotation=flat, scale=radius, display='CIRCLE')
+
+
+# Trouvailles : (abscisse, distance au rivage), puis des points au large (x, y)
+FIND_SHORE = [(-46, 7), (40, 7), (-96, 12), (100, 13), (-20, 22)]
+FIND_OPEN = [(12, 13), (-4, 44), (56, 30), (-60, 30), (-124, 40), (124, 42)]
+
+
+def build_finds(collection, rocks):
+    """Coins à trouvailles (`find_<n>`) : dans la baie, derrière l'îlot, au pied des caps et aux deux bouts de la côte."""
+    points = [shore_point(x, offset) for x, offset in FIND_SHORE] + [Vector((x, y)) for x, y in FIND_OPEN]
+    center, peak, slope = ISLET
+    obstacles = [(center, peak / slope + 0.6), *rocks]
+
+    def is_free(x, y):
+        at_sea = y - coast(x) > 4 and y < BUOYS_Y - 3 and abs(x) < SIDE_LIMIT - 3
+        return at_sea and all((Vector((x, y)) - position).length > radius + 2.5 for position, radius in obstacles)
+
+    find_spots(collection, points, is_free)
 
 
 def build_markers(collection):

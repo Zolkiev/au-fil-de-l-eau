@@ -75,6 +75,13 @@ export interface EffectSpot {
   readonly scale: number;
 }
 
+/** Coin à trouvailles (Empty `find_<n>`) : un objet peut y flotter certains jours. */
+export interface FindSpot {
+  /** Le <n> de `find_<n>`. */
+  readonly index: number;
+  readonly position: Vector3;
+}
+
 export interface WaterInfo {
   /** Objets `water` d'origine, masqués : la surface jouable est recréée par waterSurface.ts. */
   readonly objects: readonly Object3D[];
@@ -116,9 +123,11 @@ export interface LevelData {
   readonly flora: readonly Object3D[];
   /** Effets du décor (Empties `fx_smoke_<n>`, `fx_fire_<n>`, `fx_mist_<n>`), animés par LevelEffects. */
   readonly effects: readonly EffectSpot[];
+  /** Coins à trouvailles (Empties `find_<n>`), ramenés à la surface de l'eau. */
+  readonly finds: readonly FindSpot[];
 }
 
-type Role = 'spawn' | 'camera' | 'water' | 'zone' | 'collider' | 'decor' | 'cat' | 'pen' | 'penCamera' | 'flow' | 'beacon' | 'effect';
+type Role = 'spawn' | 'camera' | 'water' | 'zone' | 'collider' | 'decor' | 'cat' | 'pen' | 'penCamera' | 'flow' | 'beacon' | 'effect' | 'find';
 type ZoneBase = Pick<FishingZone, 'name' | 'type' | 'index' | 'object'>;
 
 /** Charge le niveau .glb, ou le niveau placeholder s'il est absent. */
@@ -152,6 +161,7 @@ export function parseLevel(root: Object3D, source: LevelData['source']): LevelDa
     shadowCasters,
     flora: found.decor.filter((object) => isSmallFlora(blenderName(object))),
     effects: readEffects(found.effect),
+    finds: readFinds(found.find, water.level),
   };
 }
 
@@ -206,6 +216,7 @@ function roleOf(name: string): Role | null {
   if (name === 'water') return 'water';
   if (name.startsWith('zone_')) return 'zone';
   if (name.startsWith('fx_')) return 'effect';
+  if (name.startsWith('find_')) return 'find';
   if (name.endsWith('_col')) return 'collider';
   if (name.startsWith('deco_')) return 'decor';
   return null;
@@ -214,7 +225,7 @@ function roleOf(name: string): Role | null {
 /** Range les objets par rôle. On ne descend pas dans un objet déjà reconnu. */
 function classify(root: Object3D): Record<Role, Object3D[]> {
   const found: Record<Role, Object3D[]> = {
-    spawn: [], camera: [], water: [], zone: [], collider: [], decor: [], cat: [], pen: [], penCamera: [], flow: [], beacon: [], effect: [],
+    spawn: [], camera: [], water: [], zone: [], collider: [], decor: [], cat: [], pen: [], penCamera: [], flow: [], beacon: [], effect: [], find: [],
   };
   const unknown: string[] = [];
   const visit = (object: Object3D): void => {
@@ -317,6 +328,21 @@ function readEffects(found: Object3D[]): EffectSpot[] {
     effects.push({ kind, position: object.getWorldPosition(new Vector3()), yaw: yawOf(object), scale: object.getWorldScale(new Vector3()).x });
   }
   return effects;
+}
+
+/** Coins à trouvailles : `find_<n>`, posés sur l'eau. Un nom sans numéro est ignoré, avec un warning. */
+function readFinds(found: Object3D[], waterLevel: number): FindSpot[] {
+  const spots: FindSpot[] = [];
+  for (const object of found) {
+    const name = blenderName(object);
+    const match = /^find_(\d+)$/.exec(name);
+    if (!match) {
+      warn(SCOPE, `trouvaille « ${name} » ignorée : nom attendu find_<numéro>.`);
+      continue;
+    }
+    spots.push({ index: Number(match[1]), position: object.getWorldPosition(new Vector3()).setY(waterLevel) });
+  }
+  return spots.sort((a, b) => a.index - b.index);
 }
 
 function isEffectKind(value: string | undefined): value is EffectKind {

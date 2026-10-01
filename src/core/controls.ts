@@ -1,4 +1,5 @@
 import { CONFIG } from '../config';
+import { pick } from './language';
 
 /*
  * Touches du jeu : celles de CONFIG.controls, dont certaines peuvent être
@@ -57,12 +58,12 @@ const KEY_NAMES: Record<string, string> = {
   ArrowDown: '↓',
   ArrowLeft: '←',
   ArrowRight: '→',
-  Space: 'Espace',
-  Enter: 'Entrée',
-  Escape: 'Échap',
+  Space: pick('Espace', 'Space'),
+  Enter: pick('Entrée', 'Enter'),
+  Escape: pick('Échap', 'Esc'),
   Tab: 'Tab',
-  ShiftLeft: 'Maj',
-  ShiftRight: 'Maj',
+  ShiftLeft: pick('Maj', 'Shift'),
+  ShiftRight: pick('Maj', 'Shift'),
   ControlLeft: 'Ctrl',
   ControlRight: 'Ctrl',
 };
@@ -73,7 +74,7 @@ export function keyLabel(key: string): string {
   if (key.length === 1) return key.toUpperCase();
   if (key.startsWith('Key')) return key.slice(3);
   if (key.startsWith('Digit')) return key.slice(5);
-  if (key.startsWith('Numpad')) return `Pavé ${key.slice(6)}`;
+  if (key.startsWith('Numpad')) return `${pick('Pavé', 'Numpad')} ${key.slice(6)}`;
   return key;
 }
 

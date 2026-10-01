@@ -146,6 +146,7 @@ dans le même mesh qu'un mur), sans attribut « Col ». Dans les générateurs :
 | `fx_smoke_<n>` | Empty (facultatif) | **Fumée** : des volutes montent de ce point (le haut d'une cheminée), grossissent, pâlissent et partent avec le vent. Échelle = grosseur (1 = cheminée de cabane). |
 | `fx_fire_<n>` | Empty (facultatif) | **Feu de camp** : flammes, étincelles, fumée légère, halo et lumière vacillante (plus forte la nuit). À poser au ras des bûches ; le bois et les pierres sont un objet de décor (`deco_campfire`). Échelle = taille du feu. |
 | `fx_mist_<n>` | Empty (facultatif) | **Embruns** au pied d'une cascade : nuage blanc qui s'élève de l'eau. L'avant de l'Empty (-Y) regarde **le sens où l'eau s'en va** ; le nuage s'étire en travers, sur une demi-largeur égale à l'**échelle** de l'Empty. |
+| `find_<n>` | Empty (facultatif) | **Coin à trouvailles** : chaque jour (réel), le jeu fait flotter une bouteille ou une caisse à 3 de ces coins (`CONFIG.finds.perDay`), à repêcher avec la barque. Seule la position au sol compte. À poser en **eau libre**, à plus de 3 m de toute collision (la barque doit passer à moins de 2,8 m) ; une dizaine par niveau, dans les recoins, loin du départ. Dans les générateurs : `find_spots()` refuse un point hors de l'eau libre. |
 | `npc_cat` | Empty (facultatif) | Où s'assoit Moustache, le chat des demandes : position exacte (sur le ponton, la berge…) et rotation autour de Z (son regard suit -Y, comme la barque). Sans lui, Moustache n'apparaît pas dans le décor, mais ses demandes restent accessibles par le bouton 🐈. |
 | autre | — | Rendu tel quel, et listé dans la console (message d'info) pour repérer les fautes de frappe. |
 
@@ -180,6 +181,23 @@ Deux façons de définir une zone :
 
 Les zones peuvent se chevaucher : c'est alors **la plus petite** qui compte
 (par exemple une touffe de roseaux au milieu d'une grande zone peu profonde).
+
+## Vie sur l'eau : rien à poser
+
+Nénuphars, grenouilles, canards, héron et ombres de poissons ne demandent
+aucun objet : le jeu les place d'après ce que le niveau contient déjà
+(`src/scene/waterLife.ts`).
+
+- **Nénuphars et grenouilles** : autour de chaque zone `zone_reeds_<n>`, là
+  où l'eau fait entre 0,2 et 2,6 m de profondeur. Pas dans les lieux au
+  bord de la mer.
+- **Héron** : il se pose dans l'eau très peu profonde (6 à 38 cm) à
+  l'intérieur ou tout près des zones `shallow` et `reeds`. Il lui faut au
+  moins deux coins de ce genre : une **berge en pente douce** sous l'eau
+  suffit. Sinon, pas de héron (message d'info dans la console).
+- **Canards** (mouettes au bord de la mer) et **ombres de poissons** : en
+  eau libre d'au moins 1 m de profondeur. Ils ont donc besoin d'un **fond
+  modélisé** (voir « Eau »).
 
 ## Collisions : `*_col`
 
@@ -310,6 +328,12 @@ Les zones peuvent se chevaucher : c'est alors **la plus petite** qui compte
     longueurs des bras sont lues d'après ces positions.
 - La gauche est **+X** (il regarde -Y). Absent : un pêcheur en primitives le
   remplace.
+- **Tenue (boutique de Moustache)** : le jeu repeint les sommets du bob
+  (`#6f7d4a`, et sa bande `#55603a`), du ciré (`#e0a83a`, rabat et
+  manchettes `#c38d2b`) et de l'écharpe (`#b8483c`). Même règle que pour la
+  barque : ces couleurs doivent correspondre aux objets à prix 0
+  (`hat_khaki`, `coat_mustard`, `scarf_red`) de `src/data/shop.ts`, et aux
+  teintes sombres de `TRIMS` dans `src/scene/decor.ts`.
 
 ## Poissons : `assets/fish/<id>.glb`
 
@@ -359,6 +383,9 @@ regroupe tous les sons absents).
 | `audio/reel.ogg` | Cliquetis du moulinet (joué en boucle quand la ligne revient) |
 | `audio/snap.ogg` | La ligne casse |
 | `audio/catch.ogg` | Petit jingle de prise |
+| `audio/pickup.ogg` | Trouvaille repêchée |
+| `audio/quack.ogg` | Canards (ou mouettes) qui s'écartent de la barque |
+| `audio/croak.ogg` | Coassement d'une grenouille, le soir |
 | `audio/lake_day.ogg` | Ambiance du lac le jour (boucle) |
 | `audio/lake_night.ogg` | Ambiance du lac la nuit (boucle, fondue avec celle du jour) |
 | `audio/river.ogg` | Eau vive (boucle), ajoutée à l'ambiance sur une eau qui coule (`water_flow`) |
@@ -378,6 +405,8 @@ l'extension dans `config.ts`.
 | `aucun objet « water »` | L'objet d'eau n'est pas nommé exactement `water` (vérifie le nom de l'objet, pas celui du mesh). |
 | `zone « … » ignorée` | Type de zone inconnu ou numéro manquant (`zone_reeds` → `zone_reeds_1`). |
 | `effet « … » ignoré` | Sorte d'effet inconnue ou numéro manquant (`fx_smoke` → `fx_smoke_1`). Sortes : `smoke`, `fire`, `mist`. |
+| `trouvaille « … » ignorée` | Numéro manquant (`find` → `find_1`). |
+| (info) `pas assez d’eau peu profonde … : pas de héron` | Les zones `shallow` et `reeds` n'ont pas d'eau de 6 à 38 cm de profondeur : adoucis la pente de la berge. |
 | `aucun mesh « *_col »` | Aucune collision : ajoute une berge `shore_col`. |
 | `les objets « *_col » ne contiennent aucun triangle` | Les collisions sont des Empties : il faut des meshes. |
 | `« spawn_boat » est dans un mesh *_col` | Déplace l'Empty de départ dans l'eau libre. |

@@ -256,7 +256,7 @@ function settingsRow(label: string, control: HTMLElement): HTMLElement {
 }
 
 /** Choix exclusif sous forme de boutons côte à côte. */
-function segmented<T>(options: readonly (readonly [T, string])[], current: T, onPick: (value: T) => void): HTMLElement {
+export function segmented<T>(options: readonly (readonly [T, string])[], current: T, onPick: (value: T) => void): HTMLElement {
   const group = createElement('segmented');
   const buttons = options.map(([value, label]) => {
     const button = document.createElement('button');

@@ -340,6 +340,82 @@ export const CONFIG = {
     birdRadius: { min: 25, max: 45 },
   },
 
+  /**
+   * Vie sur l'eau (src/scene/waterLife.ts, lilyPads.ts, ducks.ts, heron.ts,
+   * fishShadows.ts). Distances en mètres, durées en secondes.
+   */
+  waterLife: {
+    /** Nénuphars autour des roselières (eau douce seulement). */
+    lilyPads: {
+      perZone: 16,
+      size: { min: 0.3, max: 0.55 },
+      colors: [0x5f9e4f, 0x6fae57, 0x4f8a4a],
+      /** Part des nénuphars qui portent une fleur, et couleurs des fleurs. */
+      flowerShare: 0.22,
+      flowerColors: [0xfff4f7, 0xf7b7cf, 0xfff0a8],
+      /** Profondeur d'eau acceptée sous un nénuphar. */
+      depth: { min: 0.2, max: 2.6 },
+    },
+    /** Grenouilles : le soir et la nuit, assises sur quelques nénuphars. */
+    frogs: {
+      /** Part des nénuphars qui accueillent une grenouille. */
+      share: 0.18,
+      color: 0x6fa33c,
+      /** Elle saute à l'eau quand la barque approche, et revient plus tard. */
+      fleeDistance: 4.5,
+      away: { min: 20, max: 40 },
+      /** Coassements : écart entre deux, et distance jusqu'où on les entend. */
+      croakEvery: { min: 2.5, max: 7 },
+      hearing: 40,
+    },
+    /** Canards (mouettes posées au bord de la mer) : de petits groupes qui se promènent et s'écartent de la barque. */
+    ducks: {
+      groups: 2,
+      perGroup: 3,
+      /** Un peu plus grands que nature, pour les voir depuis la barque. */
+      scale: 1.4,
+      speed: 0.55,
+      fleeSpeed: 1.8,
+      fleeDistance: 7,
+      /** Distance d'une promenade, et pause entre deux. */
+      roam: { min: 6, max: 26 },
+      rest: { min: 3, max: 9 },
+      /** Ils restent là où l'eau est au moins aussi profonde. */
+      minDepth: 1,
+      /** Écart entre deux canards à la file, et vitesse de virage (rad/s). */
+      spacing: 0.85,
+      turn: 1.6,
+      /** Distance jusqu'où on entend leur « coin » quand ils s'enfuient. */
+      hearing: 35,
+    },
+    /** Héron : il guette dans l'eau peu profonde et s'envole vers un autre coin quand la barque approche. */
+    heron: {
+      scale: 1.5,
+      fleeDistance: 11,
+      flySpeed: 6.5,
+      flyHeight: 4.5,
+      /** Profondeur d'eau où il se pose. */
+      depth: { min: 0.06, max: 0.38 },
+      /** Il ne s'envole que vers un coin à plus de cette distance de la barque. */
+      minFlight: 18,
+    },
+    /** Ombres de poissons qui passent sous la surface, autour de la barque. */
+    shadows: {
+      count: 8,
+      /** Elles apparaissent à cette distance de la barque. */
+      ring: { min: 6, max: 24 },
+      speed: { min: 0.4, max: 0.9 },
+      /** Elles filent quand la barque arrive à moins de… */
+      fleeDistance: 3.2,
+      minDepth: 0.9,
+      /** Longueur d'une ombre. */
+      size: { min: 0.45, max: 1 },
+      color: 0x0f2c3b,
+      opacity: 0.22,
+      life: { min: 18, max: 40 },
+    },
+  },
+
   /** Signes de poissons : sauts et bulles qui trahissent un bon coin (src/scene/fishSigns.ts). */
   signs: {
     /** Délai entre deux apparitions (s) ; nombre de coins actifs au maximum ; durée d'un coin (s). */
@@ -497,6 +573,27 @@ export const CONFIG = {
     updateCheckMinutes: 30,
   },
 
+  /**
+   * Trouvailles : objets qui flottent dans les recoins des niveaux (Empties
+   * `find_<n>`), à repêcher puis à montrer à Moustache (src/progression/finds.ts,
+   * src/scene/flotsam.ts ; la liste des objets est dans src/data/finds.ts).
+   */
+  finds: {
+    /** Trouvailles cachées chaque jour (réel) dans chaque lieu. */
+    perDay: 3,
+    /** La barque repêche une trouvaille en passant à moins de cette distance (m). */
+    pickRadius: 2.8,
+    /** Coquillages : première fois (objet courant, objet rare), puis à chaque doublon. */
+    rewards: { common: 3, rare: 6, duplicate: 1 },
+    /** Chance qu'une trouvaille soit un objet rare, et chance qu'elle soit un objet encore jamais trouvé (s'il en reste). */
+    rareChance: 0.2,
+    newChance: 0.65,
+    /** Taille des objets flottants (× leur taille réelle, pour les voir de loin). */
+    scale: 1.5,
+    /** Éclat qui scintille au-dessus : couleur, taille (m), hauteur (m), vitesse du clignotement. */
+    glint: { color: 0xfff3c4, size: 1.9, height: 0.75, speed: 2.2 },
+  },
+
   /** Rendez-vous rares : pleine lune et poisson du jour (src/progression/rendezvous.ts). */
   events: {
     /** Durée d'un cycle de la lune, en jours de jeu (pleine lune au milieu). */
@@ -599,8 +696,12 @@ export const CONFIG = {
       reel: 'audio/reel.ogg',
       snap: 'audio/snap.ogg',
       catch: 'audio/catch.ogg',
+      /** Trouvaille repêchée, canard qui s'enfuit, grenouille le soir. */
+      pickup: 'audio/pickup.ogg',
+      quack: 'audio/quack.ogg',
+      croak: 'audio/croak.ogg',
     },
-    volumes: { cast: 0.3, splash: 0.55, nibble: 0.35, bite: 0.8, reel: 0.3, snap: 0.6, catch: 0.5 },
+    volumes: { cast: 0.3, splash: 0.55, nibble: 0.35, bite: 0.8, reel: 0.3, snap: 0.6, catch: 0.5, pickup: 0.45, quack: 0.3, croak: 0.28 },
     /** Ambiance du lac (boucles), fondue entre le jour et la nuit. */
     ambience: {
       files: {
@@ -665,8 +766,10 @@ export const CONFIG = {
      * Mode automatique : niveau de départ (ordinateur, écran tactile), puis
      * baisse d'un cran si le jeu passe sous `minFps` en moyenne sur `window`
      * secondes. Mesure après `warmup` secondes (chargement, shaders).
+     * (Téléphone : départ en Haute depuis la mesure de 60 i/s en Moyenne sur
+     * iPhone ; un appareil plus modeste redescend tout seul.)
      */
-    auto: { startDesktop: 'high' as QualityLevel, startTouch: 'medium' as QualityLevel, minFps: 45, window: 4, warmup: 6 },
+    auto: { startDesktop: 'high' as QualityLevel, startTouch: 'high' as QualityLevel, minFps: 45, window: 4, warmup: 6 },
   },
 
   /** Confort et accessibilité (réglages du joueur). */

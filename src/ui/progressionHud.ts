@@ -3,6 +3,7 @@ import type { Journal } from '../core/journal';
 import { fishById, type Habitat } from '../data/fish';
 import type { PlaceId } from '../data/places';
 import type { ShopItem } from '../data/shop';
+import type { FindSpot } from '../scene/levelLoader';
 import type { FishRoll } from '../fishing/fishSelector';
 import type { KeptFish } from '../progression/keptFish';
 import type { CatchReward, Progression } from '../progression/progression';
@@ -27,8 +28,9 @@ export interface ProgressionHudDeps {
 /**
  * Relie la progression à l'interface et au décor : coquillages et badge de
  * Moustache dans le panneau « matériel », barre d'appâts, décoration de la
- * barque, récompenses et bouton du vivier sur la carte de prise, achats,
- * poisson du jour, et nouvelles demandes au changement de jour.
+ * barque et tenue du pêcheur, récompenses et bouton du vivier sur la carte
+ * de prise, achats, poisson du jour, trouvailles repêchées, et nouvelles
+ * demandes au changement de jour.
  */
 export class ProgressionHud {
   private readonly deps: ProgressionHudDeps;
@@ -38,15 +40,30 @@ export class ProgressionHud {
     this.deps = deps;
     const { progression, fishingHud } = deps;
     progression.events.on('shells', ({ shells }) => fishingHud.setShells(shells));
-    progression.events.on('requests', () => fishingHud.setCabinBadge(progression.requests.unseen));
+    progression.events.on('requests', () => this.updateBadge());
+    progression.events.on('finds', () => this.updateBadge());
     progression.events.on('shop', () => this.applyShop());
     progression.events.on('rewards', ({ roll, rewards }) => this.showCatchExtras(roll, rewards));
     progression.events.on('unlock', ({ place }) => deps.hud.toast(TEXTS.places.unlocked(place.name)));
     progression.setPlace(deps.place, deps.habitats);
     progression.refreshRequests();
+    progression.refreshFinds();
     fishingHud.setShells(progression.shells);
-    fishingHud.setCabinBadge(progression.requests.unseen);
+    this.updateBadge();
     this.applyShop();
+  }
+
+  /** Moustache a-t-il quelque chose à nous dire ? (nouvelles demandes, ou trouvailles à lui montrer) */
+  get catIsWaiting(): boolean {
+    const { requests, finds } = this.deps.progression;
+    return requests.unseen || finds.carriedCount > 0;
+  }
+
+  /** La barque vient de repêcher ce qui flottait à ce coin. Retourne false s'il n'y avait rien. */
+  pickFind(spot: FindSpot): boolean {
+    if (!this.deps.progression.pickFind(spot.index)) return false;
+    this.deps.hud.toast(TEXTS.finds.picked);
+    return true;
   }
 
   /** Vérifie de temps en temps si le jour a changé (à appeler quand le jeu tourne). */
@@ -54,6 +71,7 @@ export class ProgressionHud {
     this.dayCheckTimer += dt;
     if (this.dayCheckTimer < CONFIG.progression.requests.dayCheckSeconds) return;
     this.dayCheckTimer = 0;
+    this.deps.progression.refreshFinds();
     if (this.deps.progression.refreshRequests()) this.deps.hud.toast(TEXTS.cabin.newRequests);
   }
 
@@ -90,6 +108,11 @@ export class ProgressionHud {
   forceNewDay(): void {
     this.deps.progression.requests.forgetDay();
     this.deps.progression.refreshRequests();
+    this.deps.progression.refreshFinds(`test-${Date.now()}`);
+  }
+
+  private updateBadge(): void {
+    this.deps.fishingHud.setCabinBadge(this.catIsWaiting);
   }
 
   private applyShop(): void {
@@ -123,7 +146,7 @@ export class ProgressionHud {
         return { label: TEXTS.catch.dailyReward, shells: reward.shells };
       case 'request': {
         const request = describeRequest(reward.request, this.deps.journal, this.deps.place);
-        return { label: `${TEXTS.cabin.button} ${TEXTS.catch.requestReward} : ${request}`, shells: reward.shells };
+        return { label: `${TEXTS.cabin.button} ${TEXTS.catch.requestReward}${TEXTS.colon}${request}`, shells: reward.shells };
       }
     }
   }

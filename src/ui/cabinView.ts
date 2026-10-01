@@ -1,9 +1,11 @@
 import { CONFIG } from '../config';
 import { keyHints } from '../core/controls';
 import type { Journal } from '../core/journal';
+import { curiosOf, type Curio } from '../data/finds';
 import { fishById, fishOf } from '../data/fish';
 import { PLACES, placeById, type Place, type PlaceId } from '../data/places';
 import { categoryOf, SHOP_ITEMS, shopItemById, type ShopCategory, type ShopItem } from '../data/shop';
+import type { FindReward } from '../progression/finds';
 import type { KeptFish } from '../progression/keptFish';
 import type { Progression } from '../progression/progression';
 import { isDone, type FishRequest } from '../progression/requests';
@@ -28,16 +30,19 @@ export interface CabinViewDeps {
   /** Lieu actuel, et départ vers un autre lieu (carte). */
   readonly place: PlaceId;
   readonly onTravel: (place: PlaceId) => void;
+  /** Numéros des coins à trouvailles du niveau (`find_<n>`). */
+  readonly findSpots: readonly number[];
 }
 
-export type CabinTab = 'requests' | 'pen' | 'shop' | 'map';
+export type CabinTab = 'requests' | 'finds' | 'pen' | 'shop' | 'map';
 
-const TABS: readonly CabinTab[] = ['requests', 'pen', 'shop', 'map'];
-const CATEGORIES: readonly ShopCategory[] = ['bait', 'gear', 'pen', 'decor'];
+const TABS: readonly CabinTab[] = ['requests', 'finds', 'pen', 'shop', 'map'];
+const CATEGORIES: readonly ShopCategory[] = ['bait', 'gear', 'pen', 'decor', 'outfit'];
 
 /**
- * Ponton de Moustache : ses demandes du jour (et le poisson du jour), le
- * vivier, la boutique de la cabane et la carte des lieux de pêche. Le jeu
+ * Ponton de Moustache : ses demandes du jour (et le poisson du jour), les
+ * trouvailles, le vivier, la boutique de la cabane et la carte des lieux de
+ * pêche. Le jeu
  * est en pause tant qu'il est ouvert. L'affichage se met à jour à chaque
  * changement.
  */
@@ -46,6 +51,8 @@ export class CabinView {
   private readonly root = createElement('journal cabin');
   private readonly panel = createElement('journal-panel cabin-panel');
   private tab: CabinTab = 'requests';
+  /** Ce que Moustache vient de donner pour les trouvailles rapportées (affiché jusqu'à la fermeture). */
+  private examined: FindReward[] = [];
 
   constructor(layer: HTMLElement, deps: CabinViewDeps) {
     this.deps = deps;
@@ -63,27 +70,36 @@ export class CabinView {
     deps.progression.events.on('shop', refresh);
     deps.progression.events.on('requests', refresh);
     deps.progression.events.on('pen', refresh);
+    deps.progression.events.on('finds', refresh);
   }
 
   get isOpen(): boolean {
     return !this.root.hidden;
   }
 
-  /** Ouvre sur un onglet (par défaut : les demandes s'il y en a de nouvelles, sinon le dernier ouvert). */
+  /**
+   * Ouvre sur un onglet (par défaut : les trouvailles si on en rapporte, les
+   * demandes s'il y en a de nouvelles, sinon le dernier ouvert).
+   */
   open(tab?: CabinTab): void {
+    const { progression } = this.deps;
     if (tab) this.tab = tab;
-    else if (this.deps.progression.requests.unseen) this.tab = 'requests';
+    else if (progression.finds.carriedCount > 0) this.tab = 'finds';
+    else if (progression.requests.unseen) this.tab = 'requests';
     this.root.hidden = false;
     this.showTab(this.tab);
   }
 
   close(): void {
     this.root.hidden = true;
+    this.examined = [];
   }
 
   private showTab(tab: CabinTab): void {
     this.tab = tab;
     this.panel.scrollTop = 0;
+    // Moustache examine ce qu'on lui rapporte dès qu'on lui montre
+    if (tab === 'finds') this.examined.push(...this.deps.progression.redeemFinds());
     this.render();
     if (tab === 'requests') this.deps.progression.markRequestsSeen();
   }
@@ -99,6 +115,8 @@ export class CabinView {
     switch (this.tab) {
       case 'requests':
         return this.requestsTab();
+      case 'finds':
+        return this.findsTab();
       case 'pen':
         return this.penTab();
       case 'shop':
@@ -178,6 +196,68 @@ export class CabinView {
     );
     const reward = done ? TEXTS.cabin.done : TEXTS.cabin.shop.price(request.reward);
     card.append(createElement('request-icon', requestIcon(request.goal)), body, createElement('request-reward', reward));
+    return card;
+  }
+
+  // --- Trouvailles -------------------------------------------------------------------
+
+  private findsTab(): HTMLElement {
+    const texts = TEXTS.cabin.finds;
+    const section = createElement('cabin-section');
+    const cat = createElement('cabin-cat');
+    cat.append(createElement('cabin-cat-avatar', '🐈'), createElement('cabin-speech', this.examined.length > 0 ? texts.examined : texts.intro));
+    section.append(cat, ...this.examined.map((reward) => this.findRewardCard(reward)), createElement('cabin-daily', this.findsToday()));
+    // Le lieu actuel d'abord, puis les autres
+    const places = [...PLACES].sort((a, b) => Number(b.id === this.deps.place) - Number(a.id === this.deps.place));
+    for (const place of places) section.append(...this.curioShelf(place));
+    return section;
+  }
+
+  /** Ce qui flotte encore aujourd'hui dans le lieu actuel. */
+  private findsToday(): string {
+    const { progression, place, findSpots } = this.deps;
+    const texts = TEXTS.cabin.finds;
+    const at = placeById(place).at;
+    if (progression.finds.dailyCount(findSpots) === 0) return texts.none(at);
+    const left = progression.finds.activeSpots(place, findSpots).length;
+    return left > 0 ? texts.left(left, at) : texts.allPicked(at);
+  }
+
+  /** Ce que Moustache dit d'une trouvaille rapportée, et ce qu'il donne. */
+  private findRewardCard(reward: FindReward): HTMLElement {
+    const texts = TEXTS.cabin.finds;
+    const card = createElement(`request-card find-reward${reward.isNew ? ' is-new' : ''}`);
+    const body = createElement('request-body');
+    body.append(
+      createElement('request-text', `${reward.curio.name} · ${reward.isNew ? texts.isNew : texts.again}`),
+      createElement('shop-description', TEXTS.quote(reward.curio.comment)),
+    );
+    card.append(createElement('request-icon', reward.curio.icon), body, createElement('request-reward', TEXTS.shells.gain(reward.shells)));
+    return card;
+  }
+
+  /** Collection d'un lieu : ses trouvailles, connues ou encore à découvrir. */
+  private curioShelf(place: Place): HTMLElement[] {
+    const { finds } = this.deps.progression;
+    const curios = curiosOf(place.id);
+    const grid = createElement('shop-grid');
+    curios.forEach((curio) => grid.append(this.curioCard(curio, place)));
+    return [createElement('settings-heading', TEXTS.cabin.finds.collection(place.name, finds.foundIn(place.id), curios.length)), grid];
+  }
+
+  private curioCard(curio: Curio, place: Place): HTMLElement {
+    const texts = TEXTS.cabin.finds;
+    const count = this.deps.progression.finds.count(curio);
+    const card = createElement(`shop-item${count > 0 ? '' : ' is-locked'}`);
+    const body = createElement('shop-body');
+    if (count > 0) {
+      body.append(createElement('shop-name', curio.name), createElement('shop-description', TEXTS.quote(curio.comment)));
+      card.append(createElement('shop-icon', curio.icon), body, createElement('shop-status is-owned', texts.count(count)));
+      return card;
+    }
+    const hint = curio.rarity === 'rare' ? texts.rareHint(place.at) : texts.unknownHint(place.at);
+    body.append(createElement('shop-name', texts.unknown), createElement('shop-description', hint));
+    card.append(createElement('shop-icon', '❔'), body);
     return card;
   }
 

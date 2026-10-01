@@ -1,9 +1,10 @@
 import { keyHints } from '../core/controls';
+import { LANGUAGE, LANGUAGE_NAMES, LANGUAGES, type Language } from '../core/language';
 import { isTouchMode } from '../core/pointerMode';
 import type { QualityLevel } from '../core/quality';
 import type { Settings } from '../core/settings';
 import { createElement } from './hud';
-import { menuButton, SettingsPanel } from './settingsPanel';
+import { menuButton, segmented, SettingsPanel } from './settingsPanel';
 import { TEXTS } from './texts';
 
 export type MenuScreen = 'title' | 'pause' | 'settings';
@@ -19,6 +20,8 @@ export interface MenuActions {
   readonly onReplayTutorial: () => void;
   readonly onInstall: () => void;
   readonly onUpdate: () => void;
+  /** Le joueur choisit une autre langue (écran titre) : le jeu se recharge dans cette langue. */
+  readonly onLanguageChange: (language: Language) => void;
   /** Niveau de qualité graphique en ce moment (affiché dans les réglages en mode automatique). */
   readonly currentQuality: () => QualityLevel;
 }
@@ -117,7 +120,22 @@ export class Menus {
     if (canInstall) panel.append(menuButton(TEXTS.pwa.install, this.actions.onInstall));
     else if (needsIosHint) panel.append(createElement('menu-note', TEXTS.pwa.iosHint));
     this.appendUpdateNotice(panel);
+    panel.append(this.languageChoice());
     return panel;
+  }
+
+  /** Choix de la langue, en bas de l'écran titre : chaque langue est écrite dans sa propre langue. */
+  private languageChoice(): HTMLElement {
+    const row = createElement('menu-language');
+    const icon = createElement('menu-language-icon', '🌐');
+    icon.title = TEXTS.menu.language;
+    const options = LANGUAGES.map((language) => [language, LANGUAGE_NAMES[language]] as const);
+    const choice = segmented<Language>(options, LANGUAGE, (language) => {
+      if (language !== LANGUAGE) this.actions.onLanguageChange(language);
+    });
+    choice.setAttribute('aria-label', TEXTS.menu.language);
+    row.append(icon, choice);
+    return row;
   }
 
   private pausePanel(): HTMLElement {

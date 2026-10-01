@@ -3,7 +3,7 @@
  * Chaque recette remplit directement les échantillons d'un AudioBuffer.
  */
 
-export type SoundId = 'cast' | 'splash' | 'nibble' | 'bite' | 'reel' | 'snap' | 'catch';
+export type SoundId = 'cast' | 'splash' | 'nibble' | 'bite' | 'reel' | 'snap' | 'catch' | 'pickup' | 'quack' | 'croak';
 export type AmbienceId = 'day' | 'night' | 'river' | 'rain' | 'wind' | 'sea';
 
 interface Recipe {
@@ -97,6 +97,24 @@ const RECIPES: Record<SoundId, Recipe> = {
       chime(out, rate, 783.99, 0.24, 0.8);
     },
   },
+  // Trouvaille repêchée : deux notes claires qui montent
+  pickup: {
+    duration: 0.9,
+    render: (out, rate) => {
+      chime(out, rate, 880, 0, 0.9);
+      chime(out, rate, 1318.5, 0.09, 0.8);
+    },
+  },
+  // Canard : deux « coin » nasillards
+  quack: {
+    duration: 0.5,
+    render: (out, rate) => {
+      honk(out, rate, 0, 0.16, 520, 410);
+      honk(out, rate, 0.22, 0.2, 500, 380);
+    },
+  },
+  // Grenouille : un coassement grave et roulé
+  croak: { duration: 0.42, render: (out, rate) => rattle(out, rate, 0.4, 150, 32) },
 };
 
 /** Fabrique le son `id` pour ce contexte audio. */
@@ -127,6 +145,30 @@ export function synthesizeAmbience(id: AmbienceId, context: BaseAudioContext): A
   channel.set(samples.subarray(0, length));
   normalize(channel, 0.8);
   return buffer;
+}
+
+/** Cri nasillard : une note riche en harmoniques qui glisse de `from` à `to` Hz, de `start` à `start + length` secondes. */
+function honk(out: Float32Array, rate: number, start: number, length: number, from: number, to: number): void {
+  const first = Math.floor(start * rate);
+  const count = Math.floor(length * rate);
+  let phase = 0;
+  for (let i = 0; i < count && first + i < out.length; i++) {
+    const t = i / count;
+    phase += (2 * Math.PI * (from + (to - from) * t)) / rate;
+    const envelope = Math.sin(Math.PI * t) ** 0.6;
+    out[first + i] += envelope * 0.5 * (Math.sin(phase) + 0.6 * Math.sin(2 * phase) + 0.45 * Math.sin(3 * phase) + 0.3 * Math.sin(5 * phase));
+  }
+}
+
+/** Son roulé : une note grave hachée `pulses` fois par seconde (coassement). */
+function rattle(out: Float32Array, rate: number, length: number, frequency: number, pulses: number): void {
+  const count = Math.min(out.length, Math.floor(length * rate));
+  for (let i = 0; i < count; i++) {
+    const t = i / rate;
+    const envelope = Math.sin((Math.PI * i) / count);
+    const pulse = Math.max(0, Math.sin(2 * Math.PI * pulses * t)) ** 2;
+    out[i] += envelope * pulse * 0.6 * (Math.sin(2 * Math.PI * frequency * t) + 0.5 * Math.sin(2 * Math.PI * frequency * 2.02 * t));
+  }
 }
 
 /** Sinus dont la fréquence glisse de `from` à `to` Hz, avec une décroissance rapide. */

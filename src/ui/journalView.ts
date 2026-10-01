@@ -96,11 +96,11 @@ export class JournalView {
       chip(TEXTS.journal.objectives(countAchieved(journal), TOTAL_OBJECTIVES)),
       chip(`${TEXTS.shells.icon} ${TEXTS.shells.count(this.deps.shells())}`),
       chip(TEXTS.journal.totalCatches(journal.totalCatches)),
-      chip(`${TEXTS.journal.playTime} : ${formatDuration(stats.data.playTimeSeconds)}`),
+      chip(`${TEXTS.journal.playTime}${TEXTS.colon}${formatDuration(stats.data.playTimeSeconds)}`),
     );
     const biggest = stats.data.biggest;
     const species = biggest && fishById(biggest.speciesId);
-    if (biggest && species) summary.append(chip(`${TEXTS.journal.biggest} : ${species.name}, ${formatSize(biggest.sizeCm)}`));
+    if (biggest && species) summary.append(chip(`${TEXTS.journal.biggest}${TEXTS.colon}${species.name}, ${formatSize(biggest.sizeCm)}`));
     return summary;
   }
 
@@ -152,7 +152,7 @@ function objectivesRow(species: FishSpecies, entry: JournalEntry | undefined): H
     const sized = entry && (objective === 'nice' || objective === 'trophy');
     const detail = sized ? TEXTS.journal.threshold(tierThresholdCm(species, objective)) : '';
     const badge = createElement(`journal-objective${done.has(objective) ? ' is-done' : ''}`, detail ? `${icon} ${detail}` : icon);
-    badge.title = objective === 'variant' && done.has(objective) ? species.variant.name : detail ? `${name} : ${detail}` : name;
+    badge.title = objective === 'variant' && done.has(objective) ? species.variant.name : detail ? `${name}${TEXTS.colon}${detail}` : name;
     row.append(badge);
   }
   return row;
@@ -164,11 +164,11 @@ function caughtDetails(species: FishSpecies, entry: JournalEntry): HTMLElement[]
   const variant = entry.variant ? [createElement('journal-variant', TEXTS.journal.variantName(species.variant.name))] : [];
   return [
     ...variant,
-    createElement('journal-record', `${TEXTS.journal.record} : ${formatSize(entry.bestSizeCm)} · ${TEXTS.journal.caughtTimes(entry.count)}`),
+    createElement('journal-record', `${TEXTS.journal.record}${TEXTS.colon}${formatSize(entry.bestSizeCm)} · ${TEXTS.journal.caughtTimes(entry.count)}`),
     createElement('journal-where', `${habitatText(species)} · ${timeText(species)}`),
     createElement('journal-description', species.description),
-    createElement('journal-meta', `${TEXTS.journal.favoriteBaits} : ${baits.join(', ')}`),
-    createElement('journal-meta', `${TEXTS.journal.favoriteWeather} : ${WEATHERS[species.weather].icon} ${WEATHERS[species.weather].name}`),
+    createElement('journal-meta', `${TEXTS.journal.favoriteBaits}${TEXTS.colon}${baits.join(', ')}`),
+    createElement('journal-meta', `${TEXTS.journal.favoriteWeather}${TEXTS.colon}${WEATHERS[species.weather].icon} ${WEATHERS[species.weather].name}`),
     createElement('journal-meta', `${TEXTS.journal.firstCatch} ${formatDate(entry.firstCaughtAt)}`),
   ];
 }

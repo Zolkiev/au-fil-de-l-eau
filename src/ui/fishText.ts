@@ -13,5 +13,5 @@ export function timeText(species: FishSpecies): string {
 
 /** Indice pour une espèce pas encore attrapée. */
 export function hintText(species: FishSpecies): string {
-  return `${TEXTS.journal.hint} : ${habitatText(species)} · ${timeText(species)}`;
+  return `${TEXTS.journal.hint}${TEXTS.colon}${habitatText(species)} · ${timeText(species)}`;
 }

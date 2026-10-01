@@ -59,6 +59,7 @@ export function buildPlaceholderLevel(): Group {
     ...createMarkers(r),
     ...createFishPen(r),
     ...createCampfire(r),
+    ...createFinds(r),
     ...createZones(r),
     ...createIsland(r),
     ...createRocks(r),
@@ -129,6 +130,18 @@ function createCampfire(r: number): Object3D[] {
     stones.add(stone);
   }
   return [stones, createEmpty('fx_fire_1', x, ground + 0.1, z)];
+}
+
+/** Coins à trouvailles (`find_<n>`) : quelques points d'eau libre, loin du départ. */
+function createFinds(r: number): Object3D[] {
+  const spots: readonly (readonly [number, number])[] = [
+    [0.7, 0.25],
+    [-0.2, 0.75],
+    [0.45, 0.65],
+    [-0.75, 0.35],
+    [0.6, -0.2],
+  ];
+  return spots.map(([fx, fz], index) => createEmpty(`find_${index + 1}`, fx * r, 0, fz * r));
 }
 
 /** Zones de pêche en Empties : l'échelle de l'Empty est le rayon de la zone. */

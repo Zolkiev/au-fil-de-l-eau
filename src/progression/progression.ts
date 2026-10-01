@@ -5,9 +5,11 @@ import { readNumber, readObject } from '../core/validate';
 import { BAITS, type Bait } from '../data/baits';
 import { FISH, type FishSpecies, type Habitat } from '../data/fish';
 import { DEFAULT_PLACE, PLACES, type Place, type PlaceId } from '../data/places';
+import type { Curio } from '../data/finds';
 import type { ShopItem } from '../data/shop';
 import type { FishRoll } from '../fishing/fishSelector';
 import type { Gear } from '../fishing/reelFight';
+import { Finds, type FindReward } from './finds';
 import { parseKeptFish, type KeptFish } from './keptFish';
 import { journalShells, objectiveReward, objectivesGained, type Objective } from './objectives';
 import { dailyFish } from './rendezvous';
@@ -34,6 +36,8 @@ export interface ProgressionEvents {
   pen: { kept: readonly KeptFish[] };
   /** Un nouveau lieu vient d'être débloqué. */
   unlock: { place: Place };
+  /** Trouvailles : objet repêché, objets montrés à Moustache, ou nouveau jour. */
+  finds: { carried: number };
 }
 
 /** Avancement vers le déblocage d'un lieu (espèces attrapées sur celles demandées). */
@@ -45,19 +49,20 @@ export interface PlaceProgress {
 
 /**
  * Progression du joueur au-delà du carnet : coquillages, demandes de
- * Moustache, poisson du jour, boutique de la cabane et vivier.
+ * Moustache, poisson du jour, boutique de la cabane, vivier et trouvailles.
  *
  * Solde de coquillages = objectifs du carnet (déduits du carnet) + bonus
- * (demandes accomplies, poissons du jour) − achats. Ainsi les prises faites
+ * (demandes accomplies, poissons du jour, trouvailles) − achats. Ainsi les prises faites
  * avant l'arrivée des objectifs rapportent aussi leurs coquillages.
  */
 export class Progression {
   readonly events = new Emitter<ProgressionEvents>();
   readonly requests: RequestBoard;
   readonly shop: Shop;
+  readonly finds: Finds;
   private readonly journal: Journal;
   private readonly kept: KeptFish[];
-  /** Coquillages gagnés hors carnet (demandes, poissons du jour) depuis le début de la partie. */
+  /** Coquillages gagnés hors carnet (demandes, poissons du jour, trouvailles) depuis le début de la partie. */
   private bonusShells: number;
   /** Jour (réel) où le bonus du poisson du jour a été gagné. */
   private dailyClaimedDay: string;
@@ -70,6 +75,7 @@ export class Progression {
     this.journal = journal;
     this.requests = RequestBoard.fromData(raw.requests);
     this.shop = Shop.fromData(raw.shop);
+    this.finds = Finds.fromData(raw.finds);
     this.bonusShells = readNumber(raw.bonusShells ?? raw.requestShells, 0, 0);
     this.dailyClaimedDay = typeof raw.dailyClaimedDay === 'string' ? raw.dailyClaimedDay : '';
     this.kept = parseKeptFish(raw.pen, this.penCapacity);
@@ -163,6 +169,32 @@ export class Progression {
     return added;
   }
 
+  // --- Trouvailles -------------------------------------------------------------------
+
+  /** Nouveau jour (réel) : les coins à trouvailles se remplissent. Retourne true si le jour a changé. */
+  refreshFinds(today = localDay()): boolean {
+    const changed = this.finds.refresh(today);
+    if (changed) this.events.emit('finds', { carried: this.finds.carriedCount });
+    return changed;
+  }
+
+  /** La barque repêche ce qui flotte au coin `spot` du lieu actuel ; null si le coin est vide. */
+  pickFind(spot: number): Curio | null {
+    const curio = this.finds.pick(this.place, spot);
+    if (curio) this.events.emit('finds', { carried: this.finds.carriedCount });
+    return curio;
+  }
+
+  /** Moustache examine les objets rapportés : ils rejoignent la collection, contre des coquillages. */
+  redeemFinds(): FindReward[] {
+    const rewards = this.finds.redeem();
+    if (rewards.length === 0) return rewards;
+    this.bonusShells += rewards.reduce((total, reward) => total + reward.shells, 0);
+    this.events.emit('finds', { carried: 0 });
+    this.events.emit('shells', { shells: this.shells });
+    return rewards;
+  }
+
   /** Le joueur a ouvert le tableau : les nouvelles demandes sont lues. */
   markRequestsSeen(): void {
     if (!this.requests.unseen) return;
@@ -221,6 +253,7 @@ export class Progression {
       bonusShells: this.bonusShells,
       dailyClaimedDay: this.dailyClaimedDay,
       pen: this.kept.map((fish) => ({ ...fish })),
+      finds: this.finds.toData(),
     };
   }
 

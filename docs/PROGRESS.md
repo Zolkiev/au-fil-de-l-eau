@@ -23,21 +23,149 @@
 | + | Le pêcheur et les rames animées | ✅ Livré le 2026-09-30, **à tester** |
 | + | Qualité graphique (Auto / Basse / Moyenne / Haute) et compteur d'images | ✅ Livré le 2026-09-30, **à tester** |
 | + | Grands niveaux, barque plus rapide (sprint), visée directe du lancer, effets (fumée, feu, embruns, éclats) | ✅ Livré le 2026-10-01, **à tester** |
+| + | Vie sur l'eau, trouvailles à rapporter à Moustache, tenue du pêcheur | ✅ Livré le 2026-10-01, **à tester** |
+| + | Jeu traduit en anglais, choix de la langue sur l'écran titre | ✅ Livré le 2026-10-01, **à tester** |
 
 ## Prochaines pistes (fin de la session du 2026-10-01)
 
-- **Ajuster la qualité graphique** d'après les images par seconde mesurées
-  sur iPhone (compteur : Réglages › Affichage › Images par seconde). Les
-  niveaux sont plus grands et il y a des particules en plus : la mesure
-  compte d'autant plus.
-- **Personnaliser le pêcheur** : bobs, cirés, écharpes à la boutique de
-  Moustache.
-- **Plus de vie sur l'eau** : canards, nénuphars, grenouilles le soir,
-  héron, poissons qu'on devine sous la surface.
+- **Vérifier la qualité Haute sur iPhone** : le mode Auto y démarre
+  maintenant en Haute (60 i/s mesurées en Moyenne). S'il redescend tout
+  seul en Moyenne, c'est normal ; me dire lequel des deux il garde.
 - **Vrais sons et musique** : remplacer les sons générés (choisir une
-  source : banques gratuites ou génération par IA).
+  source : banques gratuites ou génération par IA). Trois sons de plus
+  attendent un fichier : trouvaille, canards, grenouilles.
+- **Formes de chapeaux et accessoires** pour le pêcheur (casquette,
+  chapeau de paille, pipe…) : aujourd'hui, seules les couleurs changent.
+- **Trouvailles** : une récompense quand la collection d'un lieu est
+  complète (décoration exclusive ?), et des messages dans les bouteilles
+  qui donnent de vrais indices sur les poissons pas encore attrapés.
+- **Plus de bêtes** : poules d'eau, martin-pêcheur, tortue sur un rocher,
+  crabes sur la plage de la crique.
 
 ---
+
+## Anglais et choix de la langue
+
+### Livré
+
+- **Tout le jeu existe en anglais** : interface, invites, tutoriel de
+  Moustache, carnet, ponton (demandes, trouvailles, vivier, boutique,
+  carte), réglages, messages, et les données : les 22 poissons (noms,
+  variantes, descriptions), les 6 appâts, les 3 lieux, la météo, les 38
+  objets de la boutique, les 18 trouvailles, les noms des touches.
+- **Choix de la langue sur l'écran titre** : 🌐 Français | English, en bas
+  du panneau. Changer de langue recharge le jeu (quelques secondes) ; le
+  choix est mémorisé sur l'appareil.
+- **Première visite** : français si le navigateur est en français, anglais
+  pour tous les autres.
+- Le nom du jeu reste « Au fil de l’eau » dans les deux langues, et
+  Moustache garde son nom.
+- Pour retoucher une traduction : `src/ui/texts.fr.ts` et
+  `src/ui/texts.en.ts` (même forme, vérifiée à la compilation), et dans
+  `src/data/` les `pick('français', 'anglais')`.
+
+### Vérifications déjà faites
+
+- En anglais : écran titre, invites de jeu, barre d'appâts, tutoriel,
+  carnet (indices, raretés), ponton (demandes, poisson du jour, boutique,
+  trouvailles, carte), pause et aide des commandes, réglages. Aucun texte
+  français restant dans ces écrans.
+- Bascule anglais → français depuis l'écran titre : rechargement, tout
+  revient en français, le choix reste après un nouveau chargement.
+- Pluriels anglais corrects pour 0 (« 0 shells », « 0 catches »).
+- Types et build : sans erreur.
+
+### Limites connues
+
+- Le nom sous l'icône et la description de l'application installée
+  (manifeste), ainsi que la description de la page pour les moteurs de
+  recherche, restent en français : un seul manifeste par site.
+- Les messages de la console (développement) restent en français.
+- Les traductions n'ont pas été relues par un anglophone.
+
+## Vie sur l'eau, trouvailles et tenue du pêcheur
+
+### Livré
+
+- **Vie sur l'eau** (rien à poser dans Blender : tout se place d'après les
+  zones, l'eau libre et la profondeur du niveau) :
+  - **nénuphars** autour des roselières du lac et de la rivière, qui
+    flottent sur les vagues, certains avec une fleur ;
+  - **grenouilles** le soir et la nuit, assises sur quelques nénuphars :
+    elles coassent, et sautent à l'eau (plouf, rond, gouttes) quand la
+    barque approche, puis reviennent plus tard ;
+  - **canards** : deux petits groupes (un colvert en tête, deux canes
+    derrière) qui se promènent, se reposent, laissent de petits ronds, et
+    s'écartent de la barque en cancanant. La nuit, ils dorment sur place. À
+    la crique, ce sont des **mouettes** posées sur l'eau ;
+  - un **héron** à l'affût dans l'eau peu profonde, qui s'envole à grands
+    coups d'ailes vers un autre coin quand la barque arrive à moins de
+    11 m ;
+  - des **ombres de poissons** qui passent sous la surface autour de la
+    barque, serpentent, et filent quand elle approche.
+- **Trouvailles** (raisons d'explorer) :
+  - chaque jour (réel), **3 objets flottent** dans les recoins de chaque
+    lieu (11 coins possibles par niveau : baies, derrière les îles, sous le
+    pont, pied de la cascade, bouts de la côte). Une bouteille ou une petite
+    caisse, surmontée d'un **éclat doré** qui scintille, visible de loin et
+    de nuit ;
+  - on les **repêche en passant dessus** avec la barque (à moins de 2,8 m) ;
+  - on les **montre à Moustache** : un nouvel onglet « Trouvailles » au
+    ponton. Il dit ce que c'est, l'ajoute à la collection et donne des
+    coquillages (3 pour un objet courant, 6 pour un rare, 1 pour un
+    doublon). Sa bulle « ! » et la pastille du bouton 🐈 signalent qu'on a
+    quelque chose à lui montrer ;
+  - **18 objets à collectionner**, 6 par lieu dont 1 ou 2 rares (clé
+    rouillée, bouteille au message, pépite, perle…). L'onglet indique aussi
+    combien il en reste à repêcher aujourd'hui dans le lieu.
+- **Tenue du pêcheur** : nouvelle section de la boutique. Bob, ciré et
+  écharpe, 5 couleurs chacun (celle d'origine comprise), de 5 à 10
+  coquillages. La bande du bob, le rabat et les manchettes du ciré suivent
+  la couleur choisie, en plus sombre.
+- **Qualité graphique** : le mode Auto démarre maintenant en Haute sur
+  téléphone aussi (60 i/s mesurées en Moyenne sur iPhone) ; il redescend
+  seul sous 45 i/s.
+- Trois sons générés de plus : trouvaille repêchée, canards, grenouilles
+  (emplacements `audio/pickup.ogg`, `quack.ogg`, `croak.ogg`).
+- Réglages : `CONFIG.waterLife`, `CONFIG.finds`, `src/data/finds.ts` (la
+  liste des trouvailles), `src/data/shop.ts` (la tenue).
+
+### Vérifications déjà faites
+
+- Lac : 64 nénuphars et 12 grenouilles autour des 4 roselières, 2 groupes
+  de canards, héron (8 coins possibles) ; rivière : 32 nénuphars, héron
+  (7 coins) ; crique : pas de nénuphars, mouettes, héron (5 coins).
+  Captures : nénuphars et ombre de poisson, canards en file au crépuscule,
+  héron dans les roseaux puis ailes déployées à l'envol, grenouille sur un
+  nénuphar, mouettes.
+- Trouvailles : les 33 coins des trois niveaux sont en eau libre (refusés
+  sinon à la génération, et revérifiés en jeu). Objet repêché → toast,
+  pastille, ouverture du ponton sur « Trouvailles », +3 puis +6
+  coquillages, collection à jour, « 1 trouvaille flotte encore ». La
+  collection et la tenue survivent au rechargement de la page.
+- Tenue : ciré marine, bob cerise et écharpe écrue achetés et visibles sur
+  le pêcheur.
+- Téléphone (375 px) : les 5 onglets du ponton tiennent ; liste des
+  trouvailles et section « Tenue du pêcheur » lisibles.
+- Contrôle des assets (`check_assets.py`) : rien à signaler. Types et
+  build : sans erreur.
+
+### Comment tester
+
+- Rame vers un éclat doré, puis ouvre le ponton (🐈).
+- Approche une roselière au crépuscule pour entendre et faire sauter les
+  grenouilles ; approche le héron et les canards.
+- Console : `game.newRequestsDay()` remet aussi de nouvelles trouvailles.
+
+### Limites connues
+
+- Pas de mesure d'images par seconde sur téléphone avec ces ajouts (une
+  dizaine d'appels de dessin en plus) ni en qualité Haute.
+- Les canards et le héron ignorent les autres bêtes et le bouchon ; les
+  ombres de poissons sont décoratives (elles n'annoncent pas une touche).
+- Les grenouilles sont petites : on les voit surtout de près.
+- Le héron peut se poser près du ponton ou d'un feu de camp.
+- Les trois nouveaux sons sont générés (comme les autres).
 
 ## Grands niveaux, sprint, visée directe et effets
 

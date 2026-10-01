@@ -702,6 +702,20 @@ select {
   opacity: 0.7;
 }
 
+/* Choix de la langue, en bas de l'écran titre */
+.menu-language {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.menu-language-icon {
+  font-size: calc(16px * var(--text-scale, 1));
+  opacity: 0.75;
+}
+
 /* Aide à l'installation (iPhone) sous les boutons de l'écran titre */
 .menu-note {
   font-size: calc(12px * var(--text-scale, 1));
@@ -1268,6 +1282,11 @@ select {
   line-height: 1.4;
 }
 
+/* Trouvaille que Moustache vient d'examiner */
+.find-reward.is-new {
+  box-shadow: 0 0 0 2px rgba(242, 196, 109, 0.9), 0 2px 8px rgba(61, 74, 82, 0.08);
+}
+
 .cabin-daily:empty {
   display: none;
 }
@@ -1611,10 +1630,16 @@ html:not(.is-touch) .touch-stick,
     width: 100%;
   }
 
+  /* Cinq onglets : serrés pour tenir sur un téléphone ; en très grand texte, la barre défile */
+  .cabin-tabs {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
   .cabin-tabs button {
-    flex: 1;
+    flex: 1 0 auto;
     padding: 7px 6px;
-    font-size: calc(13px * var(--text-scale, 1));
+    font-size: calc(12px * var(--text-scale, 1));
   }
 
   .journal-description {

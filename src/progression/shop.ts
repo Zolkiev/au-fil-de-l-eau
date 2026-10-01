@@ -1,7 +1,7 @@
 import { CONFIG } from '../config';
 import { readNumber, readObject } from '../core/validate';
 import { baitById, type BaitId } from '../data/baits';
-import { SHOP_ITEMS, shopItemById, type DecorSlot, type GearTrack, type ShopItem } from '../data/shop';
+import { DECOR_SLOTS, SHOP_ITEMS, shopItemById, type DecorSlot, type GearTrack, type ShopItem } from '../data/shop';
 import { BASIC_GEAR, type Gear } from '../fishing/reelFight';
 
 /** Ce qu'on peut faire d'un objet de la boutique. */
@@ -19,7 +19,6 @@ export type ItemStatus =
   /** Décoration utilisée en ce moment. */
   | 'equipped';
 
-const DECOR_SLOTS: readonly DecorSlot[] = ['boatPaint', 'bobber', 'lantern'];
 /** Correspondance pièce de matériel → réglage du combat qu'elle améliore. */
 const GEAR_KEYS: Record<GearTrack, keyof Gear> = { rod: 'tensionRise', reel: 'reelSpeed', line: 'breakTime' };
 

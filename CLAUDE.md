@@ -86,7 +86,7 @@ src/
   fishing/     (cast, bobber, bite, reel minigame, fishSelector)
   ui/          (hud, journal, catchPopup, menu)
   data/        (fish.ts)
-  progression/ (objectifs, demandes, boutique, vivier, rendez-vous)
+  progression/ (objectifs, demandes, boutique, vivier, rendez-vous, trouvailles)
   pwa/         (service worker, installation, mises à jour)
   audio/
 assets/
@@ -149,12 +149,15 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
     baisse automatique si le jeu rame, et compteur d'images par seconde ;
   - niveaux agrandis (lac ~120 m, rivière ~250 m, crique ~260 m de côte),
     barque plus rapide avec sprint, visée directe du lancer, effets du
-    décor (fumée, feux de camp, embruns, gouttes, scintillement de l'eau).
+    décor (fumée, feux de camp, embruns, gouttes, scintillement de l'eau) ;
+  - vie sur l'eau (nénuphars, grenouilles, canards ou mouettes, héron,
+    ombres de poissons), trouvailles à repêcher et à montrer à Moustache
+    (collection de 18 objets), tenue du pêcheur à la boutique ;
+  - jeu en français et en anglais, langue choisie sur l'écran titre.
 
-  Voir `docs/PROGRESS.md` (dont « Prochaines pistes »). En attente : les
-  images par seconde mesurées par l'utilisateur sur son iPhone (qualité
-  Auto/Moyenne et Haute), pour ajuster `CONFIG.quality` ; d'autant plus
-  utile depuis que les niveaux sont plus grands.
+  Voir `docs/PROGRESS.md` (dont « Prochaines pistes »). Mesure sur iPhone :
+  60 i/s en qualité Auto (Moyenne) avec les grands niveaux ; depuis, Auto
+  démarre en Haute sur téléphone. En attente : savoir s'il y reste.
 - Dépôt git **public** : https://github.com/Zolkiev/au-fil-de-l-eau (branche
   `main`, commits signés `jael.pattyn@gmail.com`, réglage local du dépôt).
   Chaque push sur `main` met le jeu en ligne sur
@@ -289,7 +292,26 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   des codes physiques (`event.code`) pour les autres touches.
 - Repère de la canne : pitch négatif = pointe vers le haut, yaw négatif = vers
   la droite. Les impulsions (`kick`) positives font plonger la pointe.
-- Tous les textes affichés sont dans `src/ui/texts.ts`.
+- Textes et langues : le jeu est en français et en anglais.
+  - `src/core/language.ts` lit la langue une fois, au chargement de la page
+    (clé `petite-peche/language` du navigateur, sinon la langue du
+    navigateur : français s'il est en français, anglais sinon). `LANGUAGE`
+    et `pick(fr, en)` sont donc figés pour la session ; changer de langue
+    (`Game.changeLanguage`, écran titre) enregistre le choix et recharge la
+    page.
+  - Interface : `src/ui/texts.fr.ts` (`FR`, la référence, commentée) et
+    `src/ui/texts.en.ts` (`EN: Texts`, même forme : une entrée manquante ne
+    compile pas). `src/ui/texts.ts` exporte `TEXTS = pick(FR, EN)` et les
+    formats (`formatDate`…). Tout nouveau texte va dans les deux fichiers.
+  - Données (`src/data/` : poissons, appâts, lieux, météo, boutique,
+    trouvailles) et noms de touches (`controls.ts`) : traduits sur place
+    avec `pick('français', 'anglais')`.
+  - Ne jamais écrire de ponctuation française en dur dans le code de
+    l'interface : `TEXTS.colon` (` : ` en français, `: ` en anglais) et
+    `TEXTS.quote()`.
+  - Le code, ses commentaires et les messages de console restent en
+    français. `index.html` et le manifeste aussi (le nom du jeu ne se
+    traduit pas).
 - Sons : `AudioManager.play(id)`. Un emplacement par son dans
   `CONFIG.audio.files`, avec repli sur `src/audio/synth.ts`.
 - `window.game` (dev) expose `game.fishing`, `game.boat`, etc., utiles pour
@@ -495,6 +517,33 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   l'ouverture) ; rediriger la sortie de `export_assets.py` (très bavarde).
   `hills()` du lac ne descend jamais sous 0,3 m (sinon des flaques
   apparaîtraient à terre, là où le sol passe sous le niveau de l'eau).
+- Vie sur l'eau : `WaterLife` (`src/scene/waterLife.ts`) possède
+  `LilyPads` (feuilles, fleurs et grenouilles, autour des zones `reeds`,
+  eau douce seulement), `Ducks` (palette `MALLARDS` ou `GULLS` au bord de la
+  mer), `Heron` (absent s'il n'y a pas deux coins d'eau de 6 à 38 cm dans
+  les zones `shallow` / `reeds`) et `FishShadows`. Rien n'est posé dans
+  Blender. `WaterMap` (`waterMap.ts`) répond aux questions sur l'eau :
+  `depthAt`, `isOpen` (eau libre, hors collisions), `isClearPath`,
+  `randomPoint`, `surfaceAt` (vagues amorties près du bord, comme dans le
+  shader : passer la profondeur pour ce qui flotte en eau peu profonde).
+  Les petits modèles en code passent par `tinted()` et `merged()`
+  (`lowPoly.ts`). Mise à jour dans `animate` (elle vit aussi en pause).
+- Trouvailles : Empties `find_<n>` → `LevelData.finds` → `Flotsam`
+  (`src/scene/flotsam.ts`, objets flottants et repêchage, seulement en
+  `playing`). La logique est dans `Finds` (`src/progression/finds.ts`,
+  possédée par `Progression`) : coins du jour tirés d'après la date et le
+  lieu (`activeSpots`), objets dans la barque (`carried`), collection ;
+  `Progression.pickFind()` / `redeemFinds()` et l'événement `finds`. La
+  liste des objets est dans `src/data/finds.ts`. `CabinView` rachète les
+  objets en ouvrant l'onglet « Trouvailles ». Sauvegarde : champ
+  `progression.finds`, ajouté sans changer `VERSION`.
+- Tenue du pêcheur : emplacements `hat`, `coat`, `scarf` de `DecorSlot`
+  (`src/data/shop.ts`, catégorie de boutique `outfit`). `Decor` repeint
+  `fisher.glb` par `ColorSwap` ; les pièces sombres assorties (bande du
+  bob, rabat du ciré) sont dans `TRIMS` (`decor.ts`).
+- Sons : `pickup`, `quack`, `croak` s'ajoutent aux effets (`SoundId`).
+- Tests en console : `game.waterLife`, `game.flotsam`,
+  `game.progress.progression.finds`.
 - Qualité graphique : `src/core/quality.ts`. Le réglage `quality`
   ('auto' | 'low' | 'medium' | 'high') remplace les anciens `shadows` et
   `resolution` (repris par `parseQuality` : « économe » ou ombres coupées →
@@ -502,10 +551,13 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   plafond du pixel ratio, ombres ('boat' ou 'full', taille de carte),
   `LevelData.shadowCasters` et `LevelData.flora` (petite flore cachée),
   `NightLights.setMaxLights`, `Clouds.setDensity`, `LevelEffects.setDensity`.
-  En mode automatique,
-  `QualityGovernor` démarre selon l'appareil (tactile → 'medium') et baisse
-  d'un cran sous `minFps` (jamais de remontée) ; il mesure avec
+  En mode automatique, `QualityGovernor` démarre selon l'appareil ('high'
+  partout, `CONFIG.quality.auto`) et baisse d'un cran sous `minFps` (jamais
+  de remontée) ; il mesure avec
   `performance.now()` (sans le plafond de la boucle) et ignore les images
   d'un onglet caché. `FpsMeter` + `Hud.setFps` : compteur (réglage
-  `showFps`). Tests : `game.governor.current`.
+  `showFps`). Tests : `game.governor.current`. Dans la prévisualisation de
+  l'app, le volet caché ralentit `requestAnimationFrame` : on ne peut pas
+  y mesurer les images par seconde, et une capture peut avoir une image de
+  retard.
 

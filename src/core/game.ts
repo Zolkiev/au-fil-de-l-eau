@@ -29,6 +29,7 @@ import { DriftingLeaves } from '../scene/driftingLeaves';
 import { Critters } from '../scene/critters';
 import { FishPen } from '../scene/fishPen';
 import { FishSigns } from '../scene/fishSigns';
+import { Flotsam } from '../scene/flotsam';
 import { WeatherEffects } from '../scene/weatherEffects';
 import { WindSway } from '../scene/windSway';
 import { HeightSampler } from '../scene/heightSampler';
@@ -36,11 +37,12 @@ import { Fireflies } from '../scene/fireflies';
 import { Lantern } from '../scene/lantern';
 import { LevelEffects } from '../scene/levelEffects';
 import { createLevelHelpers } from '../scene/levelHelpers';
-import { loadLevel, type LevelData } from '../scene/levelLoader';
+import { loadLevel, type FindSpot, type LevelData } from '../scene/levelLoader';
 import { Lighting } from '../scene/lighting';
 import { createRenderer, fitToWindow, setPixelRatioCap } from '../scene/renderer';
 import { Sky } from '../scene/sky';
 import { setWaterAmbience, setWaterFlow, setWaterTime, setWaterTint } from '../scene/water';
+import { WaterLife } from '../scene/waterLife';
 import { createWaterSurface } from '../scene/waterSurface';
 import { CabinView, type CabinTab } from '../ui/cabinView';
 import { CatBubble } from '../ui/catBubble';
@@ -58,6 +60,7 @@ import { keysFor, setCustomBindings } from './controls';
 import { GameClock, type TimeSlot } from './gameClock';
 import { GameLoop } from './gameLoop';
 import { Input } from './input';
+import { saveLanguage, type Language } from './language';
 import { Progress } from './progress';
 import type { Settings } from './settings';
 import { StateMachine, type TransitionTable } from './stateMachine';
@@ -119,6 +122,10 @@ export class Game {
   private readonly nightLights: NightLights;
   /** Fumée, feux de camp, embruns et éclaboussures. */
   private readonly effects: LevelEffects;
+  /** Trouvailles qui flottent dans les recoins du niveau. */
+  private readonly flotsam: Flotsam;
+  /** Nénuphars, grenouilles, canards, héron, ombres de poissons. */
+  private readonly waterLife: WaterLife;
   private readonly rod: Rod;
   private readonly oars: Oars;
   private readonly fisher: Fisher;
@@ -224,7 +231,13 @@ export class Game {
     this.applySeaLook();
     this.nightLights = new NightLights(level);
     this.effects = new LevelEffects(level, this.nightLights);
+    this.flotsam = new Flotsam(level, (spot) => this.pickFind(spot));
     this.scene.add(this.weatherEffects.group, this.fishSigns.group, this.critters.group, this.clouds.group, this.nightLights.group, this.effects.group);
+    this.waterLife = new WaterLife(level, ground, sea !== undefined, {
+      splash: (x, z, strength) => this.effects.splash(x, z, strength),
+      play: (sound, volume) => this.audio.play(sound, 0.12, volume),
+    });
+    this.scene.add(this.flotsam.group, this.waterLife.group);
     this.cat = level.cat ? new Cat(assets.catModel, level.cat) : null;
     if (this.cat) this.scene.add(this.cat.root);
     this.fishingHud = new FishingHud(hud.layer, {
@@ -239,6 +252,8 @@ export class Game {
     this.fishing = this.createFishing(assets);
     this.stick = new TouchStick(hud.layer);
     this.progressionHud = this.createProgressionHud(assets);
+    this.showFinds();
+    this.progress.progression.events.on('finds', () => this.showFinds());
     const thumbnails = new FishThumbnails(this.renderer);
     this.journalView = new JournalView(hud.layer, {
       journal: this.progress.journal,
@@ -259,6 +274,7 @@ export class Game {
       onViewPen: () => this.viewPen(),
       place: this.place,
       onTravel: (place) => this.travel(place),
+      findSpots: this.findSpots,
     });
     this.catBubble = new CatBubble(hud.layer, () => this.openOverlay('cabin'));
     this.penViewHud = new PenViewHud(hud.layer, () => this.leavePenView());
@@ -356,6 +372,28 @@ export class Game {
     return pen;
   }
 
+  /** Numéros des coins à trouvailles de ce niveau. */
+  private get findSpots(): number[] {
+    return this.level.finds.map((spot) => spot.index);
+  }
+
+  /** Fait flotter les trouvailles du jour qui n'ont pas encore été repêchées. */
+  private showFinds(): void {
+    this.flotsam.setActive(this.progress.progression.finds.activeSpots(this.place, this.findSpots));
+  }
+
+  /** La barque passe sur une trouvaille : elle part dans la barque, en attendant de la montrer à Moustache. */
+  private pickFind(spot: FindSpot): void {
+    if (!this.progressionHud.pickFind(spot)) return;
+    this.effects.splash(spot.position.x, spot.position.z, 0.7);
+    this.audio.play('pickup', 0.03);
+  }
+
+  /** Crépuscule ou nuit : l'heure des grenouilles. */
+  private get isEvening(): boolean {
+    return this.clock.slot === 'dusk' || this.clock.slot === 'night';
+  }
+
   private get isFullMoonNight(): boolean {
     return this.clock.isFullMoon && this.clock.slot === 'night';
   }
@@ -368,7 +406,7 @@ export class Game {
       journal: this.progress.journal,
       hud: this.hud,
       fishingHud: this.fishingHud,
-      decor: new Decor(assets.boatModel, assets.bobberModel, this.lantern),
+      decor: new Decor(assets.boatModel, assets.bobberModel, this.lantern, assets.fisherModel),
       place: this.place,
       habitats,
     });
@@ -386,9 +424,17 @@ export class Game {
       onReplayTutorial: () => this.replayTutorial(),
       onInstall: () => void this.pwa.install(),
       onUpdate: () => this.applyUpdate(),
+      onLanguageChange: (language: Language) => this.changeLanguage(language),
       currentQuality: () => this.governor.current,
     };
     return new Menus(this.hud.layer, actions, () => this.progress.settings, () => this.pwa);
+  }
+
+  /** Autre langue choisie sur l'écran titre : elle est enregistrée, puis la page se recharge dans cette langue. */
+  private changeLanguage(language: Language): void {
+    saveLanguage(language);
+    this.progress.saveNow();
+    location.reload();
   }
 
   /** Nouvelle version du jeu : la partie est sauvegardée, puis la page se recharge sur la nouvelle version. */
@@ -628,6 +674,8 @@ export class Game {
     const night = this.applyAmbience();
     this.nightLights.update(dt, night, this.boat.position);
     this.effects.update(dt, elapsed, night, this.weather.intensity('wind'), this.boat.position);
+    this.flotsam.update(dt, elapsed, this.boat.position, this.fsm.state === 'playing');
+    this.waterLife.update(dt, elapsed, { boat: this.boat.position, night, evening: this.isEvening ? 1 : 0 });
     this.fisher.update(dt, elapsed, this.fisherPose(dt));
     this.fireflies.update(elapsed, this.boat.position, this.level.water.level, night);
     this.rig.update(dt, this.boat, this.fishing.focusPoint);
@@ -674,10 +722,9 @@ export class Game {
     return night;
   }
 
-  /** « ! » au-dessus de Moustache quand il a de nouvelles demandes (seulement en jeu, s'il est à l'écran). */
+  /** « ! » au-dessus de Moustache quand il a de nouvelles demandes ou qu'on lui rapporte une trouvaille (seulement en jeu, s'il est à l'écran). */
   private updateCatBubble(): void {
-    const unseen = this.progress.progression.requests.unseen;
-    if (!this.cat || !unseen || this.fsm.state !== 'playing') return this.catBubble.hide();
+    if (!this.cat || !this.progressionHud.catIsWaiting || this.fsm.state !== 'playing') return this.catBubble.hide();
     this.cat.bubbleAnchor(_bubble).project(this.camera);
     const onScreen = _bubble.z < 1 && Math.abs(_bubble.x) < 1 && Math.abs(_bubble.y) < 1;
     if (!onScreen) return this.catBubble.hide();

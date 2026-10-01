@@ -1,3 +1,5 @@
+import { pick } from '../core/language';
+
 /**
  * Lieux de pêche. Chacun a son niveau Blender (`assets/levels/…`) et ses
  * propres poissons (FishSpecies.place). On voyage de l'un à l'autre depuis
@@ -19,7 +21,7 @@ export interface SeaLook {
 export interface Place {
   readonly id: PlaceId;
   readonly name: string;
-  /** Pour les phrases : « du lac », « au lac ». */
+  /** Pour les phrases : « du lac », « au lac » (en anglais : « the lake », « at the lake »). */
   readonly of: string;
   readonly at: string;
   readonly icon: string;
@@ -38,31 +40,37 @@ export interface Place {
 export const PLACES: readonly Place[] = [
   {
     id: 'lake',
-    name: 'Le lac',
-    of: 'du lac',
-    at: 'au lac',
+    name: pick('Le lac', 'The lake'),
+    of: pick('du lac', 'the lake'),
+    at: pick('au lac', 'at the lake'),
     icon: '🏞️',
-    description: 'Un lac tranquille, son île, son ponton et la cabane de Moustache.',
+    description: pick('Un lac tranquille, son île, son ponton et la cabane de Moustache.', 'A quiet lake, its island, its jetty and Moustache’s cabin.'),
     level: 'levels/lake_01.glb',
     unlock: null,
   },
   {
     id: 'river',
-    name: 'La rivière',
-    of: 'de la rivière',
-    at: 'à la rivière',
+    name: pick('La rivière', 'The river'),
+    of: pick('de la rivière', 'the river'),
+    at: pick('à la rivière', 'at the river'),
     icon: '🌊',
-    description: 'Une rivière vive au fond d’un vallon, avec sa cascade et son vieux pont de bois.',
+    description: pick(
+      'Une rivière vive au fond d’un vallon, avec sa cascade et son vieux pont de bois.',
+      'A lively river at the bottom of a valley, with its waterfall and its old wooden bridge.',
+    ),
     level: 'levels/river_01.glb',
     unlock: { place: 'lake', species: 8 },
   },
   {
     id: 'cove',
-    name: 'La crique',
-    of: 'de la crique',
-    at: 'à la crique',
+    name: pick('La crique', 'The cove'),
+    of: pick('de la crique', 'the cove'),
+    at: pick('à la crique', 'at the cove'),
     icon: '🏖️',
-    description: 'Une crique au bord de la mer : plage de sable, falaises de pins, vieux phare et bouées au large.',
+    description: pick(
+      'Une crique au bord de la mer : plage de sable, falaises de pins, vieux phare et bouées au large.',
+      'A cove by the sea: sandy beach, pine-clad cliffs, an old lighthouse and buoys offshore.',
+    ),
     level: 'levels/cove_01.glb',
     unlock: { place: 'river', species: 4 },
     sea: { waterTint: 0x3fc8c0, tintMix: 0.4, waves: 1.7, birdColor: 0xf2f2ee },
