@@ -319,13 +319,15 @@ function crickets(out: Float32Array, rate: number, frequency: number, period: nu
   }
 }
 
-/** Cliquetis réguliers (`clicksPerSecond`), chacun un très bref bruit aigu. */
+/** Cliquetis réguliers (`clicksPerSecond`), chacun un très bref bruit, adouci pour ne pas claquer dans l'aigu. */
 function ratchet(out: Float32Array, rate: number, clicksPerSecond: number): void {
   const period = Math.floor(rate / clicksPerSecond);
-  const clickLength = Math.floor(0.004 * rate);
+  const clickLength = Math.floor(0.005 * rate);
   for (let start = 0; start < out.length; start += period) {
+    let low = 0;
     for (let i = 0; i < clickLength && start + i < out.length; i++) {
-      out[start + i] = (Math.random() * 2 - 1) * (1 - i / clickLength);
+      low += 0.35 * (Math.random() * 2 - 1 - low);
+      out[start + i] = low * (1 - i / clickLength);
     }
   }
 }

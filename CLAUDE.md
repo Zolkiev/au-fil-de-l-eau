@@ -276,10 +276,17 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   `#`). Les vagues sont définies une seule fois (`CONFIG.water.waves`) et
   existent en GLSL (`waveGlsl`) et en TS (`waveHeight`) : tout ce qui flotte
   doit utiliser `waveHeight`.
-- Audio : trois canaux (sfx, ambience, music) sous un master. Ambiance jour
-  et nuit en boucles fondues (`setNight`). `MusicBox` sert de musique
-  générative si `audio/music.ogg` est absent. Volumes = réglages ×
-  `CONFIG.audio`.
+- Audio : trois canaux (sfx, ambience, music) sous un master, suivi d'un
+  limiteur ; les calques d'ambiance passent par un passe-bas
+  (`ambience.lowpassHz`). Ambiance jour et nuit en boucles fondues
+  (`setNight`). `MusicBox` sert de musique générative si `audio/music.ogg`
+  est absent. Volumes = (curseur du joueur)² × `CONFIG.audio` ; niveau
+  général = `outputGain`. Le master est muet jusqu'au premier geste, puis
+  fondu d'entrée (`fadeIn`). Le mixage est volontairement doux (le joueur
+  s'est plaint d'un son trop fort) : niveaux mesurés dans
+  `docs/PROGRESS.md` › « Son adouci ». Pour re-mesurer : importer
+  `src/audio/synth.ts` dans un script Node avec un faux contexte
+  (`sampleRate`, `createBuffer`) et calculer crête et niveau moyen.
 - Réglages : `Settings` (`src/core/settings.ts`), valeurs par défaut dans
   `CONFIG.settingsDefaults`, relus par `parseSettings`, appliqués par
   `Game.applySettings()`, modifiés depuis `SettingsPanel`.

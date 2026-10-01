@@ -685,8 +685,27 @@ export const CONFIG = {
     crankRadius: 0.035,
   },
 
+  /**
+   * Son. Le mixage est réglé pour rester doux au réglage par défaut, sans
+   * passer par le menu : ambiances autour de -36 dB en moyenne, effets entre
+   * -18 et -34 dB en crête (la touche, le plus fort, vers -16 dB). Niveaux
+   * mesurés sur les sons générés ; à revoir si de vrais fichiers les
+   * remplacent (voir docs/PROGRESS.md).
+   */
   audio: {
-    masterVolume: 0.8,
+    /**
+     * Niveau général quand le curseur « Volume général » est à 100 %. Les
+     * curseurs suivent une courbe au carré (plus fine vers le bas) : au
+     * réglage par défaut (80 %), le niveau vaut 0,64 × outputGain.
+     */
+    outputGain: 0.5,
+    /** Le son monte en douceur au premier geste du joueur, au lieu de démarrer d'un coup (s). */
+    fadeInSeconds: 2,
+    /**
+     * Limiteur en sortie : il retient les crêtes quand plusieurs sons
+     * tombent en même temps (seuil en dB, taux de compression).
+     */
+    limiter: { threshold: -12, knee: 6, ratio: 12, attack: 0.003, release: 0.25 },
     /** Fichiers de assets/audio/ ; un fichier absent est remplacé par un son généré. */
     files: {
       cast: 'audio/cast.ogg',
@@ -701,7 +720,8 @@ export const CONFIG = {
       quack: 'audio/quack.ogg',
       croak: 'audio/croak.ogg',
     },
-    volumes: { cast: 0.3, splash: 0.55, nibble: 0.35, bite: 0.8, reel: 0.3, snap: 0.6, catch: 0.5, pickup: 0.45, quack: 0.3, croak: 0.28 },
+    /** Volume de chaque effet (1 = aussi fort que possible). */
+    volumes: { cast: 0.26, splash: 0.46, nibble: 0.32, bite: 0.65, reel: 0.16, snap: 0.5, catch: 0.46, pickup: 0.4, quack: 0.23, croak: 0.2 },
     /** Ambiance du lac (boucles), fondue entre le jour et la nuit. */
     ambience: {
       files: {
@@ -712,14 +732,21 @@ export const CONFIG = {
         wind: 'audio/wind.ogg',
         sea: 'audio/sea.ogg',
       },
-      /** Volume du ressac au bord de la mer. */
-      seaVolume: 0.9,
-      /** Volume de l'eau vive à la rivière (par rapport aux ambiances jour et nuit). */
-      riverVolume: 0.8,
-      volume: 0.5,
+      /** Volume de l'ensemble des ambiances (les boucles jour et nuit sont à 1 dans cet ensemble). */
+      volume: 0.35,
+      /** Calques ajoutés aux boucles jour et nuit : ressac (mer), eau vive (rivière), pluie et vent à leur plus fort. */
+      seaVolume: 1.4,
+      riverVolume: 0.85,
+      rainVolume: 2,
+      windVolume: 1.2,
+      /**
+       * Filtre passe-bas (Hz) sur les ambiances : il adoucit le souffle aigu
+       * de la pluie et de l'eau vive, fatigant à l'oreille. 0 = aucun filtre.
+       */
+      lowpassHz: 4000,
     },
     /** Musique : ce fichier en boucle s'il existe, sinon une petite boîte à musique générée. */
-    music: { file: 'audio/music.ogg', volume: 0.35 },
+    music: { file: 'audio/music.ogg', volume: 0.6 },
   },
 
   /** Réglages par défaut (modifiables dans le menu, sauvegardés). */

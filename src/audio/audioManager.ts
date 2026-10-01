@@ -14,6 +14,14 @@ export interface AudioVolumes {
   readonly music: number;
 }
 
+/**
+ * Curseur de volume (0 → 1) → gain. Au carré : l'oreille entend les rapports
+ * de niveau, pas les différences ; le bas du curseur reste ainsi utilisable.
+ */
+function sliderGain(value: number): number {
+  return value * value;
+}
+
 /** Nœuds audio, créés seulement si le navigateur fournit WebAudio. */
 interface Channels {
   readonly master: GainNode;
@@ -42,6 +50,10 @@ export class AudioManager {
   private musicBox: MusicBox | null = null;
   /** Volume des oiseaux et des grillons sous la pluie (1 = normal). */
   private weatherHush = 1;
+  /** Niveau général voulu (réglage du joueur × CONFIG.audio.outputGain). */
+  private masterLevel = 0;
+  /** Le fondu d'entrée a eu lieu (avant lui, le son reste muet). */
+  private fadedIn = false;
 
   constructor() {
     this.context = createContext();
@@ -62,12 +74,15 @@ export class AudioManager {
     if (missing.length > 0) warn('audio', `sons absents (${missing.join(', ')}) → sons générés en WebAudio.`);
   }
 
+  /** Réglages du joueur (curseurs de 0 à 1), appliqués par-dessus le mixage de CONFIG.audio. */
   setVolumes(volumes: AudioVolumes): void {
-    if (!this.channels) return;
-    this.channels.master.gain.value = volumes.master;
-    this.channels.sfx.gain.value = volumes.sfx;
-    this.channels.ambience.gain.value = volumes.ambience * CONFIG.audio.ambience.volume;
-    this.channels.music.gain.value = volumes.music * CONFIG.audio.music.volume;
+    if (!this.context || !this.channels) return;
+    this.masterLevel = sliderGain(volumes.master) * CONFIG.audio.outputGain;
+    // Sans à-coup quand on bouge le curseur ; avant le premier geste, le fondu d'entrée s'en charge
+    if (this.fadedIn) this.channels.master.gain.setTargetAtTime(this.masterLevel, this.context.currentTime, 0.05);
+    this.channels.sfx.gain.value = sliderGain(volumes.sfx);
+    this.channels.ambience.gain.value = sliderGain(volumes.ambience) * CONFIG.audio.ambience.volume;
+    this.channels.music.gain.value = sliderGain(volumes.music) * CONFIG.audio.music.volume;
   }
 
   /** Ressac et mouettes au bord de la mer, en plus de l'ambiance jour/nuit. */
@@ -84,8 +99,8 @@ export class AudioManager {
   setWeather(rain: number, wind: number): void {
     this.weatherHush = 1 - 0.6 * rain;
     if (!this.channels) return;
-    this.channels.ambienceLayers.rain.gain.value = rain;
-    this.channels.ambienceLayers.wind.gain.value = wind;
+    this.channels.ambienceLayers.rain.gain.value = rain * CONFIG.audio.ambience.rainVolume;
+    this.channels.ambienceLayers.wind.gain.value = wind * CONFIG.audio.ambience.windVolume;
   }
 
   /** Fondu de l'ambiance jour → nuit (0 → 1), et humeur de la musique. */
@@ -156,9 +171,20 @@ export class AudioManager {
       void context.resume().then(() => {
         if (context.state !== 'running') return;
         gestures.forEach((gesture) => window.removeEventListener(gesture, unlock));
+        this.fadeIn(context);
       });
     };
     gestures.forEach((gesture) => window.addEventListener(gesture, unlock));
+  }
+
+  /** Le son arrive en douceur : du silence au niveau voulu en quelques secondes. */
+  private fadeIn(context: AudioContext): void {
+    if (!this.channels) return;
+    this.fadedIn = true;
+    const gain = this.channels.master.gain;
+    gain.cancelScheduledValues(context.currentTime);
+    gain.setValueAtTime(0, context.currentTime);
+    gain.linearRampToValueAtTime(this.masterLevel, context.currentTime + CONFIG.audio.fadeInSeconds);
   }
 }
 
@@ -172,29 +198,59 @@ function createContext(): AudioContext | null {
   }
 }
 
-/** master ← effets, ambiance (← calques jour et nuit), musique. */
+/**
+ * Sortie ← limiteur ← master ← effets, ambiance (← filtre doux ← calques jour,
+ * nuit, rivière, pluie, vent, mer), musique. Le master reste muet jusqu'au
+ * fondu d'entrée (premier geste du joueur).
+ */
 function createChannels(context: AudioContext): Channels {
   const gain = (output: AudioNode): GainNode => {
     const node = context.createGain();
     node.connect(output);
     return node;
   };
-  const master = gain(context.destination);
+  const master = silent(gain(createLimiter(context)));
   const ambience = gain(master);
+  const layers = softened(context, ambience);
   return {
     master,
     sfx: gain(master),
     ambience,
     music: gain(master),
     ambienceLayers: {
-      day: gain(ambience),
-      night: gain(ambience),
-      river: silent(gain(ambience)),
-      rain: silent(gain(ambience)),
-      wind: silent(gain(ambience)),
-      sea: silent(gain(ambience)),
+      day: gain(layers),
+      night: gain(layers),
+      river: silent(gain(layers)),
+      rain: silent(gain(layers)),
+      wind: silent(gain(layers)),
+      sea: silent(gain(layers)),
     },
   };
+}
+
+/** Limiteur branché sur la sortie : plusieurs sons en même temps ne saturent pas. */
+function createLimiter(context: AudioContext): AudioNode {
+  const { threshold, knee, ratio, attack, release } = CONFIG.audio.limiter;
+  const limiter = context.createDynamicsCompressor();
+  limiter.threshold.value = threshold;
+  limiter.knee.value = knee;
+  limiter.ratio.value = ratio;
+  limiter.attack.value = attack;
+  limiter.release.value = release;
+  limiter.connect(context.destination);
+  return limiter;
+}
+
+/** Entrée des calques d'ambiance : un passe-bas qui en adoucit le souffle (ou `output` tel quel sans filtre). */
+function softened(context: AudioContext, output: AudioNode): AudioNode {
+  const cutoff = CONFIG.audio.ambience.lowpassHz;
+  if (cutoff <= 0) return output;
+  const filter = context.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.frequency.value = cutoff;
+  filter.Q.value = 0.707;
+  filter.connect(output);
+  return filter;
 }
 
 function silent(node: GainNode): GainNode {
