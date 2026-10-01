@@ -61,10 +61,10 @@ export class FishSigns implements HotspotQuery {
   private spawnIn: number;
   private bubbleCursor = 0;
   private readonly boat = new Vector3();
-  /** Petit son d'un saut, avec un volume selon la distance à la barque (0 → 1). */
-  private readonly onSplash: (volume: number) => void;
+  /** Un poisson crève la surface en (x, z) : son plouf, avec un volume selon la distance à la barque (0 → 1). */
+  private readonly onSplash: (volume: number, x: number, z: number) => void;
 
-  constructor(level: LevelData, onSplash: (volume: number) => void) {
+  constructor(level: LevelData, onSplash: (volume: number, x: number, z: number) => void) {
     const { maxActive, bubbles } = CONFIG.signs;
     this.level = level;
     this.onSplash = onSplash;
@@ -207,7 +207,7 @@ export class FishSigns implements HotspotQuery {
   private splash(x: number, z: number): void {
     this.ripples.spawn(x, this.level.water.level, z, 0.7, 1.0, 0.7);
     const distance = Math.hypot(x - this.boat.x, z - this.boat.z);
-    this.onSplash(MathUtils.clamp(1 - distance / 35, 0, 1));
+    this.onSplash(MathUtils.clamp(1 - distance / 35, 0, 1), x, z);
   }
 
   /** Les coins éteints ou trop loin de la barque disparaissent. */

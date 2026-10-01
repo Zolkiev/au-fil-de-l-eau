@@ -34,6 +34,7 @@ import { WindSway } from '../scene/windSway';
 import { HeightSampler } from '../scene/heightSampler';
 import { Fireflies } from '../scene/fireflies';
 import { Lantern } from '../scene/lantern';
+import { LevelEffects } from '../scene/levelEffects';
 import { createLevelHelpers } from '../scene/levelHelpers';
 import { loadLevel, type LevelData } from '../scene/levelLoader';
 import { Lighting } from '../scene/lighting';
@@ -116,6 +117,8 @@ export class Game {
   private readonly critters: Critters;
   private readonly clouds = new Clouds();
   private readonly nightLights: NightLights;
+  /** Fumée, feux de camp, embruns et éclaboussures. */
+  private readonly effects: LevelEffects;
   private readonly rod: Rod;
   private readonly oars: Oars;
   private readonly fisher: Fisher;
@@ -133,7 +136,7 @@ export class Game {
   private readonly clock = new GameClock();
   private readonly dayNight = new DayNight();
   private readonly fireflies = new Fireflies();
-  private readonly wake = new Ripples();
+  private readonly wake = new Ripples(20);
   private readonly hud: Hud;
   private readonly audio: AudioManager;
   private readonly renderer: WebGLRenderer;
@@ -160,7 +163,8 @@ export class Game {
   private readonly loop = new GameLoop((dt, elapsed) => this.update(dt, elapsed));
   /** Où revenir en fermant le carnet ou le ponton. */
   private overlayReturn: 'playing' | 'paused' = 'playing';
-  private wakeTimer = 0;
+  /** Distance parcourue depuis le dernier rond du sillage (m). */
+  private wakeTravel = 0;
   /** Créneau de la frame précédente (annonce de la nuit de pleine lune). */
   private lastSlot: TimeSlot | null = null;
   private dayAnnounced = false;
@@ -213,13 +217,14 @@ export class Game {
     this.scene.add(level.root, createWaterSurface(level, ground), this.boat.root, this.levelHelpers, this.fireflies.points, this.wake.group);
     this.leaves = this.createFlow(level);
     this.weatherEffects = new WeatherEffects(level);
-    this.fishSigns = new FishSigns(level, (volume) => this.audio.play('splash', 0.3, volume * CONFIG.signs.splashVolume));
+    this.fishSigns = new FishSigns(level, (volume, x, z) => this.fishSplash(volume, x, z));
     this.windSway = new WindSway(level);
     const sea = placeById(this.place).sea;
     this.critters = new Critters(level, sea?.birdColor);
     this.applySeaLook();
     this.nightLights = new NightLights(level);
-    this.scene.add(this.weatherEffects.group, this.fishSigns.group, this.critters.group, this.clouds.group, this.nightLights.group);
+    this.effects = new LevelEffects(level, this.nightLights);
+    this.scene.add(this.weatherEffects.group, this.fishSigns.group, this.critters.group, this.clouds.group, this.nightLights.group, this.effects.group);
     this.cat = level.cat ? new Cat(assets.catModel, level.cat) : null;
     if (this.cat) this.scene.add(this.cat.root);
     this.fishingHud = new FishingHud(hud.layer, {
@@ -336,6 +341,7 @@ export class Game {
       boosts: () => currentBoosts(this.progress.progression.dailyFish, this.isFullMoonNight),
       weather: () => this.weather.id,
       hotspots: this.fishSigns,
+      splash: (x, z, strength) => this.effects.splash(x, z, strength),
     });
   }
 
@@ -441,7 +447,7 @@ export class Game {
   /**
    * Applique un niveau de qualité (CONFIG.quality.presets) : finesse de
    * l'image, ombres (barque seule ou tout le décor), petite flore, lumières
-   * de nuit, nuages.
+   * de nuit, nuages, particules.
    */
   private applyQuality(level: QualityLevel): void {
     const preset = CONFIG.quality.presets[level];
@@ -451,6 +457,7 @@ export class Game {
     this.level.flora.forEach((object) => (object.visible = preset.flora));
     this.nightLights.setMaxLights(preset.nightLights);
     this.clouds.setDensity(preset.clouds);
+    this.effects.setDensity(preset.effects);
   }
 
   /** Mode automatique : le jeu ramait, la qualité vient de baisser d'un cran. */
@@ -619,7 +626,8 @@ export class Game {
     setWaterTime(elapsed);
     this.boat.animate(dt, elapsed);
     const night = this.applyAmbience();
-    this.nightLights.update(dt, night);
+    this.nightLights.update(dt, night, this.boat.position);
+    this.effects.update(dt, elapsed, night, this.weather.intensity('wind'), this.boat.position);
     this.fisher.update(dt, elapsed, this.fisherPose(dt));
     this.fireflies.update(elapsed, this.boat.position, this.level.water.level, night);
     this.rig.update(dt, this.boat, this.fishing.focusPoint);
@@ -654,6 +662,7 @@ export class Game {
     const { night } = ambience.values;
     this.sky.setAmbience(ambience);
     this.clouds.setAmbience(ambience);
+    this.effects.setAmbience(ambience);
     this.sky.setMoonPhase(this.clock.moonPhase);
     this.sky.setCloudiness(this.weatherEffects.cloudiness(this.weather));
     this.audio.setWeather(this.weather.intensity('rain'), this.weather.intensity('wind'));
@@ -701,34 +710,45 @@ export class Game {
     return { left, right, lookAt: this.fishing.focusPoint, lean: 0 };
   }
 
-  /** Une pelle entre dans l'eau : petit rond et plouf discret. */
+  /** Une pelle entre dans l'eau : petit rond, quelques gouttes et plouf discret. */
   private oarSplash(blade: Vector3): void {
     this.wake.spawn(blade.x, this.level.water.level, blade.z, 0.35, 0.9, 0.45);
+    this.effects.splash(blade.x, blade.z, 0.3);
     this.audio.play('splash', 0.2, CONFIG.oars.splashVolume);
   }
 
+  /** Un poisson saute ou replonge : gouttes, et son plouf plus ou moins fort selon la distance. */
+  private fishSplash(volume: number, x: number, z: number): void {
+    this.effects.splash(x, z, 0.8);
+    this.audio.play('splash', 0.3, volume * CONFIG.signs.splashVolume);
+  }
+
   private updateWake(dt: number, elapsed: number): void {
-    const { minSpeed, interval } = CONFIG.wake;
+    const { minSpeed, spacing } = CONFIG.wake;
     this.wake.update(dt, elapsed);
-    this.wakeTimer -= dt;
     const speed = this.boat.speed;
-    if (Math.abs(speed) < minSpeed || this.wakeTimer > 0) return;
-    this.wakeTimer = interval;
+    // Un rond tous les `spacing` mètres : le sillage reste régulier, même en ramant fort
+    this.wakeTravel += Math.abs(speed) * dt;
+    if (Math.abs(speed) < minSpeed || this.wakeTravel < spacing) return;
+    this.wakeTravel = 0;
     const behind = -Math.sign(speed) * 1.4;
     const { x, z } = this.boat.position;
     const yaw = this.boat.yaw;
     this.wake.spawn(x + Math.sin(yaw) * behind, this.level.water.level, z + Math.cos(yaw) * behind, 1.3, 1.8, 0.28);
+    // En ramant fort, l'étrave soulève une petite gerbe
+    if (speed > CONFIG.boat.maxForwardSpeed * CONFIG.effects.bowSprayFrom) this.effects.splash(x + Math.sin(yaw) * 1.5, z + Math.cos(yaw) * 1.5, 0.45);
   }
 
   /** Clavier et joystick tactile ; la barque reste immobile tant que la ligne n'est pas au repos. */
   private readBoatControls(): BoatControls {
     const busy = this.fishing.isBusy;
     this.stick.setAvailable(!busy);
-    if (busy) return { throttle: 0, turn: 0 };
+    if (busy) return { throttle: 0, turn: 0, sprint: false };
     const stick = this.stick.value;
     return {
       throttle: MathUtils.clamp(this.input.axis(keysFor('backward'), keysFor('forward')) + stick.y, -1, 1),
       turn: MathUtils.clamp(this.input.axis(keysFor('left'), keysFor('right')) + stick.x, -1, 1),
+      sprint: this.input.isHeld(keysFor('sprint')) || this.stick.sprint,
     };
   }
 

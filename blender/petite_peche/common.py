@@ -149,6 +149,39 @@ class Ground:
         return min(self.height(px, py) for px, py in [(x, y), *around])
 
 
+def grid_coords(half, fine_half, fine_cell, coarse_cell):
+    """
+    Coordonnées d'une grille symétrique de -half à +half : pas fin jusqu'à
+    ±fine_half (là où l'on joue), puis pas large jusqu'au bord (collines
+    lointaines, vues de loin : moins de triangles).
+    """
+    fine_count = int(round(fine_half / fine_cell))
+    fine = [i * fine_cell for i in range(fine_count + 1)]
+    coarse_count = max(1, math.ceil((half - fine[-1]) / coarse_cell - 1e-6)) if half > fine[-1] + 1e-6 else 0
+    coarse = [fine[-1] + (half - fine[-1]) * k / coarse_count for k in range(1, coarse_count + 1)]
+    positive = fine + coarse
+    return [-x for x in reversed(positive[1:])] + positive
+
+
+def build_grid_terrain(collection, material, rng, xs, ys, height, color):
+    """
+    Terrain `deco_terrain` : grille triangulée sur les coordonnées `xs` × `ys`.
+    `height(x, y)` donne le relief ; `color(height, slope, x, y, rng)` la
+    couleur de chaque triangle (slope : 0 = à plat, 1 = vertical).
+    """
+    builder = MeshBuilder()
+    points = [[Vector((x, y, height(x, y))) for y in ys] for x in xs]
+    for i in range(len(xs) - 1):
+        for j in range(len(ys) - 1):
+            a, b, c, d = points[i][j], points[i + 1][j], points[i][j + 1], points[i + 1][j + 1]
+            triangles = [(a, b, d), (a, d, c)] if (i + j) % 2 == 0 else [(a, b, c), (b, d, c)]
+            for triangle in triangles:
+                normal = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]).normalized()
+                middle = sum(triangle, Vector()) / 3
+                builder.polygon(triangle, patchy(color(middle.z, 1 - normal.z, middle.x, middle.y, rng), middle.x, middle.y))
+    return builder.to_object("deco_terrain", material, collection)
+
+
 class MeshBuilder:
     """Accumule de la géométrie colorée (une couleur par face) dans un bmesh."""
 

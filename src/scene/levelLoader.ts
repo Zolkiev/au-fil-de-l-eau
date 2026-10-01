@@ -61,6 +61,20 @@ export interface PenInfo {
   readonly view: Vector3 | null;
 }
 
+/** Sortes d'effets posés dans le niveau par des Empties `fx_<sorte>_<n>`. */
+export const EFFECT_KINDS = ['smoke', 'fire', 'mist'] as const;
+export type EffectKind = (typeof EFFECT_KINDS)[number];
+
+/** Effet du décor : fumée d'une cheminée, feu de camp, embruns d'une cascade. */
+export interface EffectSpot {
+  readonly kind: EffectKind;
+  readonly position: Vector3;
+  /** Cap de l'Empty (rad, 0 = vers +Z) : pour des embruns, le sens où l'eau s'en va. */
+  readonly yaw: number;
+  /** Échelle de l'Empty : taille de la fumée ou du feu (1 = normale), rayon des embruns (m). */
+  readonly scale: number;
+}
+
 export interface WaterInfo {
   /** Objets `water` d'origine, masqués : la surface jouable est recréée par waterSurface.ts. */
   readonly objects: readonly Object3D[];
@@ -100,9 +114,11 @@ export interface LevelData {
   readonly shadowCasters: readonly Mesh[];
   /** Petite flore (herbe, fleurs, galets) : cachée en qualité basse. */
   readonly flora: readonly Object3D[];
+  /** Effets du décor (Empties `fx_smoke_<n>`, `fx_fire_<n>`, `fx_mist_<n>`), animés par LevelEffects. */
+  readonly effects: readonly EffectSpot[];
 }
 
-type Role = 'spawn' | 'camera' | 'water' | 'zone' | 'collider' | 'decor' | 'cat' | 'pen' | 'penCamera' | 'flow' | 'beacon';
+type Role = 'spawn' | 'camera' | 'water' | 'zone' | 'collider' | 'decor' | 'cat' | 'pen' | 'penCamera' | 'flow' | 'beacon' | 'effect';
 type ZoneBase = Pick<FishingZone, 'name' | 'type' | 'index' | 'object'>;
 
 /** Charge le niveau .glb, ou le niveau placeholder s'il est absent. */
@@ -135,6 +151,7 @@ export function parseLevel(root: Object3D, source: LevelData['source']): LevelDa
     beacon: pickOne(found.beacon, 'beacon')?.getWorldPosition(new Vector3()) ?? null,
     shadowCasters,
     flora: found.decor.filter((object) => isSmallFlora(blenderName(object))),
+    effects: readEffects(found.effect),
   };
 }
 
@@ -188,6 +205,7 @@ function roleOf(name: string): Role | null {
   if (name === 'beacon') return 'beacon';
   if (name === 'water') return 'water';
   if (name.startsWith('zone_')) return 'zone';
+  if (name.startsWith('fx_')) return 'effect';
   if (name.endsWith('_col')) return 'collider';
   if (name.startsWith('deco_')) return 'decor';
   return null;
@@ -195,7 +213,9 @@ function roleOf(name: string): Role | null {
 
 /** Range les objets par rôle. On ne descend pas dans un objet déjà reconnu. */
 function classify(root: Object3D): Record<Role, Object3D[]> {
-  const found: Record<Role, Object3D[]> = { spawn: [], camera: [], water: [], zone: [], collider: [], decor: [], cat: [], pen: [], penCamera: [], flow: [], beacon: [] };
+  const found: Record<Role, Object3D[]> = {
+    spawn: [], camera: [], water: [], zone: [], collider: [], decor: [], cat: [], pen: [], penCamera: [], flow: [], beacon: [], effect: [],
+  };
   const unknown: string[] = [];
   const visit = (object: Object3D): void => {
     const role = roleOf(blenderName(object));
@@ -281,6 +301,26 @@ function readFlow(found: Object3D[]): Vector2 {
   const yaw = yawOf(empty);
   const speed = empty.getWorldScale(new Vector3()).x;
   return new Vector2(Math.sin(yaw) * speed, Math.cos(yaw) * speed);
+}
+
+/** Effets du décor : `fx_<smoke|fire|mist>_<n>`. Un nom inconnu est ignoré, avec un warning. */
+function readEffects(found: Object3D[]): EffectSpot[] {
+  const effects: EffectSpot[] = [];
+  for (const object of found) {
+    const name = blenderName(object);
+    const kind = /^fx_([a-z]+)_\d+$/.exec(name)?.[1];
+    if (!isEffectKind(kind)) {
+      warn(SCOPE, `effet « ${name} » ignoré : nom attendu fx_<${EFFECT_KINDS.join('|')}>_<numéro>.`);
+      continue;
+    }
+    object.visible = false;
+    effects.push({ kind, position: object.getWorldPosition(new Vector3()), yaw: yawOf(object), scale: object.getWorldScale(new Vector3()).x });
+  }
+  return effects;
+}
+
+function isEffectKind(value: string | undefined): value is EffectKind {
+  return EFFECT_KINDS.includes(value as EffectKind);
 }
 
 /** Cap d'un objet : angle de son axe local +Z (= -Y dans Blender) autour de la verticale. */

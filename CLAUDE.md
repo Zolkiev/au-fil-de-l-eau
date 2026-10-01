@@ -37,8 +37,11 @@ TOUJOURS être jouable, même sans aucun asset Blender.
 Documente ces conventions dans `docs/BLENDER_CONVENTIONS.md`.
 
 ## Boucle de gameplay
-1. **Lancer** : maintenir le clic pour charger la puissance, viser avec la souris,
-   relâcher → le bouchon part en arc et tombe sur l'eau.
+1. **Lancer** : cliquer (ou toucher) l'eau là où l'on veut pêcher ; en gardant
+   l'appui, le repère suit le pointeur, et relâcher → le bouchon part en arc et
+   tombe sur le repère. (Écart assumé avec la spec d'origine, « maintenir pour
+   charger la puissance » : la jauge qui oscillait ne laissait pas maîtriser
+   le point de chute.)
 2. **Attente** : le bouchon flotte. Délai aléatoire selon la zone, l'heure et l'appât.
    Petites touches trompeuses (le bouchon frémit) avant la vraie touche.
 3. **Ferrer** : à la vraie touche (le bouchon plonge + son), le joueur a une
@@ -62,8 +65,8 @@ Commence avec 10 espèces fictives, cohérentes pour un lac tempéré.
 - **Carnet** : grille des espèces, silhouettes pour celles pas encore attrapées,
   record de taille par espèce, compteur de prises.
 - **Appâts** (phase 2) : 3 appâts qui modifient les probabilités.
-- **Barque** : déplacement lent au clavier (ZQSD / WASD) dans les limites `_col`,
-  léger tangage procédural.
+- **Barque** : déplacement au clavier (ZQSD / WASD) dans les limites `_col`,
+  léger tangage procédural ; touche Maj (ou joystick à fond) pour ramer fort.
 
 ## Rendu et ambiance
 - Shader d'eau stylisé : ondulation des vertices, dégradé profondeur, écume
@@ -143,11 +146,15 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
     la canne, mouline, suit son bouchon du regard et lève les bras à la
     prise ;
   - réglage de qualité graphique (Auto / Basse / Moyenne / Haute) avec
-    baisse automatique si le jeu rame, et compteur d'images par seconde.
+    baisse automatique si le jeu rame, et compteur d'images par seconde ;
+  - niveaux agrandis (lac ~120 m, rivière ~250 m, crique ~260 m de côte),
+    barque plus rapide avec sprint, visée directe du lancer, effets du
+    décor (fumée, feux de camp, embruns, gouttes, scintillement de l'eau).
 
   Voir `docs/PROGRESS.md` (dont « Prochaines pistes »). En attente : les
   images par seconde mesurées par l'utilisateur sur son iPhone (qualité
-  Auto/Moyenne et Haute), pour ajuster `CONFIG.quality`.
+  Auto/Moyenne et Haute), pour ajuster `CONFIG.quality` ; d'autant plus
+  utile depuis que les niveaux sont plus grands.
 - Dépôt git **public** : https://github.com/Zolkiev/au-fil-de-l-eau (branche
   `main`, commits signés `jael.pattyn@gmail.com`, réglage local du dépôt).
   Chaque push sur `main` met le jeu en ligne sur
@@ -428,9 +435,10 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   parties en cours seraient perdues.
 - Lumières de nuit : `NightLights` (`src/scene/nightLights.ts`) trouve les
   meshes émissifs du décor (lanternes, fenêtres, lanterne du phare), règle
-  leur éclat selon `night`, leur ajoute un halo (sprite additif) et, pour
-  les `CONFIG.nightLights.maxLights` premiers, une `PointLight` (toujours
-  présente, intensité 0 le jour : pas de recompilation des shaders). L'Empty
+  leur éclat selon `night`, leur ajoute un halo (sprite additif) ; les
+  `CONFIG.nightLights.maxLights` `PointLight` (toujours présentes,
+  intensité 0 le jour : pas de recompilation des shaders) vont aux sources
+  les plus proches de la barque (voir plus bas). L'Empty
   `beacon` (`LevelData.beacon`) porte le faisceau tournant d'un phare (cônes
   additifs dont la couleur des sommets s'éteint avec la distance).
 - Assets, finitions : `generate_assets.py` cuit l'occlusion ambiante des
@@ -454,13 +462,47 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   l'attente, bras levés à la prise) ; le bras est résolu en IK à deux
   segments (coude vers l'extérieur et l'arrière). Mis à jour dans `animate`
   (tourne aussi en pause).
+- Lancer : `CastAim.target()` donne le cap et la distance du point d'eau
+  sous le pointeur ; `CastPhase.aimDistance()` les garde tels quels à la
+  souris, et au doigt part du point touché puis ajoute le glissement
+  vertical (`CONFIG.touch.aimMetersPerPixel`, d'après `Input.pointerPixels`).
+  `ctx.power` n'est plus une jauge : c'est la portée visée (0 → 1), pour
+  pencher la canne. Un appui relâché avant la première image de `CHARGING`
+  lance quand même (`!isPointerHeld`).
+- Sprint : `BoatControls.sprint` (touche `sprint`, modifiable, ou
+  `TouchStick.sprint` quand le joystick est poussé à fond vers l'avant).
+  `Boat.propel` ne plafonne jamais sous la vitesse d'erre : après un
+  sprint, la barque ralentit toute seule. Le sillage est espacé en mètres
+  (`CONFIG.wake.spacing`), pas en secondes.
+- Effets du décor : Empties `fx_smoke_<n>`, `fx_fire_<n>`, `fx_mist_<n>` →
+  `LevelData.effects` → `LevelEffects` (`src/scene/levelEffects.ts`), qui
+  possède trois lots de `Particles` (`particles.ts` : carrés instanciés
+  face à la caméra, un appel de dessin par lot ; volutes, lueurs, gouttes)
+  et les `Campfire`. `LevelEffects.splash(x, z, force)` sert à toutes les
+  éclaboussures (la pêche y accède par `FishingDeps.splash`). Les volutes
+  et les gouttes prennent la lumière du moment (`setAmbience`).
+- Lumières de nuit : `NightLights` garde une liste de `LightSource` (objets
+  émissifs + feux via `addSource`) et prête ses `maxLights` PointLight aux
+  plus proches de la barque, en fondu (`lend`). Un feu règle son
+  `flicker`. Ne jamais créer de PointLight ailleurs pour le décor.
+- Scintillement de l'eau : dans `FRAGMENT_REFLECTION` (`water.ts`), piloté
+  par `CONFIG.water.sparkle` et la lumière principale (`setWaterAmbience`).
+- Générateurs de niveaux : `grid_coords` et `build_grid_terrain`
+  (`common.py`) font le terrain (grille fine où l'on joue, large au loin).
+  `blender/regenerate_levels.py` ne recrée que les trois niveaux. Via le
+  MCP Blender : ouvrir le `.blend` (`open_mainfile`) dans un appel, lancer
+  les scripts dans le suivant (le contexte est vide juste après
+  l'ouverture) ; rediriger la sortie de `export_assets.py` (très bavarde).
+  `hills()` du lac ne descend jamais sous 0,3 m (sinon des flaques
+  apparaîtraient à terre, là où le sol passe sous le niveau de l'eau).
 - Qualité graphique : `src/core/quality.ts`. Le réglage `quality`
   ('auto' | 'low' | 'medium' | 'high') remplace les anciens `shadows` et
   `resolution` (repris par `parseQuality` : « économe » ou ombres coupées →
   'low'). `Game.applyQuality(level)` applique `CONFIG.quality.presets` :
   plafond du pixel ratio, ombres ('boat' ou 'full', taille de carte),
   `LevelData.shadowCasters` et `LevelData.flora` (petite flore cachée),
-  `NightLights.setMaxLights`, `Clouds.setDensity`. En mode automatique,
+  `NightLights.setMaxLights`, `Clouds.setDensity`, `LevelEffects.setDensity`.
+  En mode automatique,
   `QualityGovernor` démarre selon l'appareil (tactile → 'medium') et baisse
   d'un cran sous `minFps` (jamais de remontée) ; il mesure avec
   `performance.now()` (sans le plafond de la boucle) et ignore les images

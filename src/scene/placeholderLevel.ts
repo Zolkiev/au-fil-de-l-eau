@@ -58,6 +58,7 @@ export function buildPlaceholderLevel(): Group {
     named(new Mesh(new RingGeometry(r - 1.5, groundRadius, 64, 1).rotateX(-Math.PI / 2)), 'shore_col'),
     ...createMarkers(r),
     ...createFishPen(r),
+    ...createCampfire(r),
     ...createZones(r),
     ...createIsland(r),
     ...createRocks(r),
@@ -108,6 +109,26 @@ function createFishPen(r: number): Object3D[] {
   const tub = named(new Group(), 'deco_fish_pen');
   tub.add(walls, bottom);
   return [tub, createEmpty('fish_pen', x, top - 0.08, z, 1.15)];
+}
+
+/**
+ * Feu de camp sur la berge, de l'autre côté de la barque : un cercle de
+ * pierres, et l'Empty `fx_fire_1` où le jeu allume les flammes.
+ */
+function createCampfire(r: number): Object3D[] {
+  const angle = Math.PI / 3.4;
+  const x = Math.sin(angle) * (r + 4.5);
+  const z = Math.cos(angle) * (r + 4.5);
+  const ground = 0.68;
+  const stones = named(new Group(), 'deco_campfire');
+  for (let i = 0; i < 7; i++) {
+    const stone = new Mesh(new DodecahedronGeometry(0.17, 0), material(PALETTE.rock));
+    const around = (i / 7) * Math.PI * 2;
+    stone.position.set(x + Math.cos(around) * 0.6, ground + 0.05, z + Math.sin(around) * 0.6);
+    stone.rotation.set(i, i * 1.3, 0);
+    stones.add(stone);
+  }
+  return [stones, createEmpty('fx_fire_1', x, ground + 0.1, z)];
 }
 
 /** Zones de pêche en Empties : l'échelle de l'Empty est le rayon de la zone. */

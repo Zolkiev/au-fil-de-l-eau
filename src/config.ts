@@ -35,6 +35,8 @@ export const CONFIG = {
     backward: ['s', 'ArrowDown'],
     left: ['a', 'q', 'ArrowLeft'],
     right: ['d', 'ArrowRight'],
+    /** Ramer plus fort, tant que la touche est maintenue. */
+    sprint: ['ShiftLeft', 'ShiftRight'],
     toggleLevelHelpers: ['g'],
     journal: ['j'],
     /** Garder la prise au vivier (sur la carte de prise). */
@@ -62,6 +64,14 @@ export const CONFIG = {
   touch: {
     /** Joystick pour ramer : zone morte au centre (part du rayon, 0 → 1), par axe. */
     stickDeadZone: 0.18,
+    /** Joystick poussé vers l'avant au-delà de cette part du rayon : on rame plus fort. */
+    stickSprintZone: 0.9,
+    /**
+     * Visée du lancer au doigt : le point touché donne la direction et la
+     * distance de départ, puis glisser vers le haut ou le bas règle la
+     * distance finement (mètres par pixel d'écran).
+     */
+    aimMetersPerPixel: 0.11,
   },
 
   /** Horloge de jeu (le rendu jour/nuit arrivera en phase 4). */
@@ -86,13 +96,18 @@ export const CONFIG = {
 
   boat: {
     /** Poussée des rames (m/s²). Vitesse de croisière ≈ acceleration / waterDrag. */
-    acceleration: 1.1,
+    acceleration: 1.5,
     /** Freinage de l'eau (1/s) : plus c'est grand, plus la barque s'arrête vite. */
     waterDrag: 0.45,
-    maxForwardSpeed: 2.2,
-    maxBackwardSpeed: 0.9,
+    maxForwardSpeed: 2.8,
+    maxBackwardSpeed: 1.1,
+    /**
+     * Ramer fort (touche Maj, ou joystick poussé à fond), en marche avant :
+     * × vitesse maximale, × poussée, × cadence des rames.
+     */
+    sprint: { speed: 1.75, acceleration: 2.2, strokeRate: 1.45 },
     /** Vitesse de rotation maximale (rad/s). */
-    maxTurnSpeed: 0.7,
+    maxTurnSpeed: 0.8,
     /** Réactivité du gouvernail (1/s). */
     turnResponse: 2,
     /** Rayon du cercle de collision de la barque. */
@@ -152,8 +167,10 @@ export const CONFIG = {
     /** Distance du lancer à 0 % et à 100 % de puissance. */
     minCastDistance: 4,
     maxCastDistance: 22,
-    /** Temps pour que la jauge passe de 0 à 100 % (elle redescend ensuite, en va-et-vient). */
-    chargeDuration: 1.3,
+    /** Vitesse à laquelle la canne part en arrière quand on arme le lancer (1/s). */
+    chargeResponse: 9,
+    /** Trajectoire affichée pendant la visée : nombre de points, et leur taille (m). */
+    aimPath: { points: 20, size: 0.3 },
     /** Écart maximal (rad) entre la visée et l'axe de la caméra. */
     maxAimAngle: 1.3,
     /** Durée du vol du bouchon : base + par mètre parcouru (s). */
@@ -360,11 +377,52 @@ export const CONFIG = {
     haloScale: 5,
     haloMax: 6,
     haloOpacity: 0.55,
-    /** Lumière chaude autour des premiers objets émissifs (lanternes, fenêtres). */
+    /**
+     * Vraies lumières chaudes : `maxLights` au plus, données aux lanternes,
+     * fenêtres et feux les plus proches de la barque. Une source n'éclaire
+     * que si la barque est à moins de `reach.none` mètres (pleinement en
+     * deçà de `reach.full`) ; `fade` : vitesse du fondu quand une lumière
+     * change de source (1/s).
+     */
     light: { color: 0xffc27a, intensity: 5, distance: 10 },
     maxLights: 3,
+    reach: { full: 45, none: 70 },
+    fade: 4,
     /** Faisceau du phare : longueur et rayon au bout (m), rotation (rad/s), inclinaison vers le bas (rad). */
     beacon: { color: 0xfff1c0, length: 70, radius: 6, speed: 0.5, tilt: 0.06, opacity: 0.2 },
+  },
+
+  /**
+   * Effets du décor posés dans Blender (Empties `fx_*`) et éclaboussures
+   * (src/scene/levelEffects.ts, campfire.ts, particles.ts). Débits en
+   * particules par seconde, durées en secondes, tailles en mètres.
+   */
+  effects: {
+    /** Au-delà de cette distance à la barque (m), un effet du décor n'émet plus rien. */
+    range: 120,
+    /** Fumée d'une cheminée (`fx_smoke_<n>`) : elle monte, grossit, pâlit, et dérive avec le vent. */
+    smoke: { rate: 4.5, life: { min: 4, max: 6.5 }, rise: 0.75, spread: 0.12, size: 0.4, endSize: 1.8, color: 0xdcd9d2, alpha: 0.4, drift: 0.3 },
+    /** Feu de camp (`fx_fire_<n>`) : flammes, étincelles, fumée légère, halo et lumière vacillante. */
+    fire: {
+      flameColors: [0xff6a14, 0xffa726, 0xffe27a],
+      flameHeight: 0.62,
+      flameRadius: 0.2,
+      /** Vitesse du vacillement. */
+      flicker: 9,
+      sparks: { rate: 5, life: 1.5, rise: 1.3, size: 0.07, color: 0xffb060 },
+      smoke: { rate: 2.2, alpha: 0.24, size: 0.3, endSize: 1.2 },
+      glow: { color: 0xff9a3c, size: 2.8, opacity: 0.45 },
+      /** Lumière du feu : `day` = part gardée en plein jour. */
+      light: { color: 0xff9548, intensity: 9, day: 0.3 },
+    },
+    /** Embruns d'une cascade (`fx_mist_<n>`, échelle de l'Empty = rayon du nuage). */
+    mist: { rate: 12, life: { min: 2.2, max: 3.6 }, rise: 0.6, size: 1.6, endSize: 4.4, color: 0xf4fbff, alpha: 0.32 },
+    /** Éclaboussures : gouttes projetées (plouf du bouchon, saut d'un poisson, rames, étrave quand on rame fort). */
+    splash: { drops: 14, size: 0.085, speed: 2.6, gravity: 9, color: 0xf4fbff, alpha: 0.9 },
+    /** Gerbe à l'étrave à partir de cette vitesse (× la vitesse maximale sans sprint). */
+    bowSprayFrom: 1.15,
+    /** Nombre maximal de particules affichées : volutes (fumée, embruns), lueurs (étincelles), gouttes. */
+    capacity: { puffs: 160, sparks: 48, drops: 96 },
   },
 
   /** Rames de la barque (src/scene/oars.ts). Angles en radians. */
@@ -590,15 +648,19 @@ export const CONFIG = {
    * - shadows : 'boat' (seule la barque fait une ombre) ou 'full' (tout le décor proche) ;
    * - shadowMapSize : finesse des ombres (px) ;
    * - flora : herbe, fleurs et galets affichés ou non ;
-   * - nightLights : nombre de vraies lumières de nuit (lanternes, fenêtres) ;
-   * - clouds : part des nuages affichés.
+   * - nightLights : nombre de vraies lumières de nuit (lanternes, fenêtres, feux) ;
+   * - clouds : part des nuages affichés ;
+   * - effects : part des particules émises (fumée, embruns, étincelles).
    */
   quality: {
     presets: {
-      low: { pixelRatio: 1, shadows: 'boat', shadowMapSize: 512, flora: false, nightLights: 1, clouds: 0.5 },
-      medium: { pixelRatio: 1.5, shadows: 'full', shadowMapSize: 1024, flora: true, nightLights: 2, clouds: 1 },
-      high: { pixelRatio: 2, shadows: 'full', shadowMapSize: 2048, flora: true, nightLights: 3, clouds: 1 },
-    } satisfies Record<QualityLevel, { pixelRatio: number; shadows: 'boat' | 'full'; shadowMapSize: number; flora: boolean; nightLights: number; clouds: number }>,
+      low: { pixelRatio: 1, shadows: 'boat', shadowMapSize: 512, flora: false, nightLights: 1, clouds: 0.5, effects: 0.5 },
+      medium: { pixelRatio: 1.5, shadows: 'full', shadowMapSize: 1024, flora: true, nightLights: 2, clouds: 1, effects: 1 },
+      high: { pixelRatio: 2, shadows: 'full', shadowMapSize: 2048, flora: true, nightLights: 3, clouds: 1, effects: 1 },
+    } satisfies Record<
+      QualityLevel,
+      { pixelRatio: number; shadows: 'boat' | 'full'; shadowMapSize: number; flora: boolean; nightLights: number; clouds: number; effects: number }
+    >,
     /**
      * Mode automatique : niveau de départ (ordinateur, écran tactile), puis
      * baisse d'un cran si le jeu passe sous `minFps` en moyenne sur `window`
@@ -713,6 +775,14 @@ export const CONFIG = {
     /** Reflet du ciel en regardant l'eau de biais (0 → 1). */
     reflectivity: 0.75,
     roughness: 0.3,
+    /**
+     * Scintillement : petits éclats de soleil (ou de lune) qui clignotent sur
+     * l'eau, du côté de la lumière. `density` = éclats possibles par mètre,
+     * `share` = part des cases qui en portent un, `size` = rayon (part de la
+     * case), `focus` = étroitesse du reflet (grand = seulement à contre-jour),
+     * `strength` = éclat.
+     */
+    sparkle: { density: 4.5, share: 0.16, size: 0.3, focus: 9, strength: 1.8, speed: 2.5 },
   },
 
   /** Lucioles, la nuit, autour de la barque. */
@@ -745,8 +815,8 @@ export const CONFIG = {
 
   fireflies: { count: 40, color: 0xd8ff7a, size: 0.3, minDistance: 6, maxDistance: 28 },
 
-  /** Sillage de la barque : un rond derrière elle quand elle avance. */
-  wake: { minSpeed: 0.4, interval: 0.3 },
+  /** Sillage de la barque : un rond derrière elle quand elle avance, tous les `spacing` mètres parcourus. */
+  wake: { minSpeed: 0.4, spacing: 0.75 },
 
   level: {
     /** Taille du plan d'eau de secours si le GLB ne contient pas d'objet `water`. */

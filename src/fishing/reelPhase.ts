@@ -67,6 +67,7 @@ export class ReelPhase {
   private fishBurst(): void {
     const ctx = this.ctx;
     ctx.rippleAtBobber(1.2, 0.8, 0.7);
+    ctx.splashAtBobber(0.8);
     ctx.deps.rod.kick(CONFIG.rod.biteKick * 0.7);
     ctx.deps.audio.play('splash', 0.2, 0.5);
   }
@@ -84,6 +85,7 @@ export class ReelPhase {
     const { journal, fishingHud, audio, level } = ctx.deps;
     this.catchOrigin.set(ctx.bobber.position.x, level.water.level, ctx.bobber.position.z);
     ctx.rippleAtBobber(1.8, 1.2, 0.8);
+    ctx.splashAtBobber(1.4);
     ctx.bobber.returnHome();
     fishingHud.reel.hide();
     const result = journal.record(roll.species.id, roll.sizeCm, roll.variant);

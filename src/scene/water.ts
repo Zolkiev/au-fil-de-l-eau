@@ -1,4 +1,4 @@
-import { Color, Mesh, MeshStandardMaterial, PlaneGeometry, Vector2 } from 'three';
+import { Color, Mesh, MeshStandardMaterial, PlaneGeometry, Vector2, Vector3 } from 'three';
 import { CONFIG } from '../config';
 import type { Ambience } from './dayNight';
 import { avoidDryPixels } from './waterMask';
@@ -10,7 +10,8 @@ import { setWaveFlow, setWaveScale, waveGlsl } from './waves';
  *  - ondulation des sommets (vagues, amorties près de la rive) ;
  *  - facettes low poly (flatShading) qui accrochent la lumière ;
  *  - dégradé selon la profondeur, écume animée au bord de l'eau ;
- *  - reflet du ciel quand on regarde l'eau de biais (Fresnel).
+ *  - reflet du ciel quand on regarde l'eau de biais (Fresnel) ;
+ *  - scintillement : petits éclats de soleil ou de lune, du côté de la lumière.
  * La géométrie vient de waterSurface.ts (attributs `depth` et `depthSmooth`).
  */
 
@@ -26,6 +27,11 @@ const uniforms = {
   uFoamWidth: { value: CONFIG.water.foamWidth },
   uFoamStrength: { value: CONFIG.water.foamStrength },
   uReflectivity: { value: CONFIG.water.reflectivity },
+  uLightDirection: { value: new Vector3(0, 1, 0) },
+  uSparkleColor: { value: new Color(0x000000) },
+  /** x : éclats par mètre ; y : part des cases sans éclat ; z : rayon d'un éclat ; w : étroitesse du reflet. */
+  uSparkle: { value: [CONFIG.water.sparkle.density, 1 - CONFIG.water.sparkle.share, CONFIG.water.sparkle.size, CONFIG.water.sparkle.focus] },
+  uSparkleSpeed: { value: CONFIG.water.sparkle.speed },
 };
 
 const SHALLOW_TINT = new Color(CONFIG.water.shallowTint);
@@ -63,6 +69,10 @@ const FRAGMENT_HEADER = /* glsl */ `
   uniform float uFoamWidth;
   uniform float uFoamStrength;
   uniform float uReflectivity;
+  uniform vec3 uLightDirection;
+  uniform vec3 uSparkleColor;
+  uniform vec4 uSparkle;
+  uniform float uSparkleSpeed;
   varying float vWaterDepth;
   varying float vWaterDepthSmooth;
   varying vec2 vWaterXZ;
@@ -77,9 +87,21 @@ const FRAGMENT_COLOR = /* glsl */ `
   diffuseColor.rgb = mix(diffuseColor.rgb, uFoamColor, clamp(waterFoam, 0.0, 1.0) * uFoamStrength);
 `;
 
+// Scintillement : l'eau est découpée en petites cases ; certaines portent un
+// éclat rond qui clignote à son rythme, visible là où l'eau renvoie la lumière
+// vers l'œil (à contre-jour).
 const FRAGMENT_REFLECTION = /* glsl */ `
-  float waterFresnel = pow(1.0 - clamp(dot(normalize(vViewPosition), normal), 0.0, 1.0), 4.0);
+  vec3 waterView = normalize(vViewPosition);
+  float waterFresnel = pow(1.0 - clamp(dot(waterView, normal), 0.0, 1.0), 4.0);
   outgoingLight = mix(outgoingLight, uReflectionColor, waterFresnel * uReflectivity);
+  vec2 sparkleGrid = vWaterXZ * uSparkle.x;
+  vec2 sparkleCell = floor(sparkleGrid);
+  float sparkleSeed = fract(sin(dot(sparkleCell, vec2(127.1, 311.7))) * 43758.5453);
+  float sparkleDot = 1.0 - smoothstep(uSparkle.z * 0.5, uSparkle.z, length(fract(sparkleGrid) - 0.5));
+  float sparkleBlink = pow(max(sin(uTime * uSparkleSpeed * (0.6 + sparkleSeed) + sparkleSeed * 60.0), 0.0), 6.0);
+  vec3 sparkleLight = normalize((viewMatrix * vec4(uLightDirection, 0.0)).xyz);
+  float sparkleFacing = pow(max(dot(reflect(-waterView, normal), sparkleLight), 0.0), uSparkle.w);
+  outgoingLight += uSparkleColor * step(uSparkle.y, sparkleSeed) * sparkleDot * sparkleBlink * sparkleFacing * smoothstep(0.3, 1.2, vWaterDepth);
   #include <opaque_fragment>
 `;
 
@@ -111,6 +133,9 @@ export function setWaterAmbience(ambience: Ambience): void {
   uniforms.uShallowColor.value.copy(water).lerp(SHALLOW_TINT, shallowMix).multiplyScalar(shallowBrightness);
   uniforms.uDeepColor.value.copy(water).multiplyScalar(deepBrightness);
   uniforms.uReflectionColor.value.copy(skyHorizon).lerp(skyTop, 0.35);
+  // Éclats : couleur de la lumière principale (soleil ou lune), plus vifs quand elle est forte
+  uniforms.uLightDirection.value.copy(ambience.lightDirection);
+  uniforms.uSparkleColor.value.copy(ambience.colors.sun).multiplyScalar(ambience.values.sunIntensity * CONFIG.water.sparkle.strength * 0.3);
   if (placeTint.mix <= 0) return;
   uniforms.uShallowColor.value.lerp(placeTint.color, placeTint.mix);
   uniforms.uDeepColor.value.lerp(placeTint.color, placeTint.mix * 0.6).multiplyScalar(0.85);

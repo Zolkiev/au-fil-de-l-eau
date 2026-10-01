@@ -10,8 +10,8 @@ import type { ZoneType } from '../scene/levelLoader';
 export const TEXTS = {
   /** Invite en bas de l'écran, selon l'état de la pêche (au repos, elle cite les touches actuelles). */
   prompts: {
-    IDLE: (k: KeyHints): string => `Clic maintenu : lancer · ${k.move} : ramer · ${k.cabin} : Moustache · ${k.journal} : carnet · Échap : menu`,
-    CHARGING: 'Relâche pour lancer · Échap : annuler',
+    IDLE: (k: KeyHints): string => `Clic sur l’eau : lancer · ${k.move} : ramer (${k.sprint} : plus vite) · ${k.cabin} : Moustache · ${k.journal} : carnet · Échap : menu`,
+    CHARGING: 'Vise avec la souris, relâche pour lancer · Échap : annuler',
     CASTING: '',
     WAITING: 'Patience… · Clic : ramener la ligne',
     BITE: 'Ça mord ! Clique pour ferrer !',
@@ -22,8 +22,8 @@ export const TEXTS = {
 
   /** Mêmes invites sur écran tactile. */
   touchPrompts: {
-    IDLE: 'Doigt maintenu sur l’eau : lancer · Joystick : ramer',
-    CHARGING: 'Glisse pour viser, lâche pour lancer',
+    IDLE: 'Touche l’eau : lancer · Joystick : ramer (à fond : plus vite)',
+    CHARGING: 'Glisse pour ajuster (haut : plus loin), lâche pour lancer',
     CASTING: '',
     WAITING: 'Patience… · Touche : ramener la ligne',
     BITE: 'Ça mord ! Touche vite pour ferrer !',
@@ -139,7 +139,8 @@ export const TEXTS = {
     controlsTitle: 'Commandes',
     controls: (k: KeyHints): (readonly [string, string])[] => [
       [`${k.move} ou flèches`, 'Ramer'],
-      ['Clic maintenu, puis relâcher', 'Lancer (la souris vise)'],
+      [`${k.sprint} en ramant`, 'Ramer plus fort'],
+      ['Clic sur l’eau (maintenir pour ajuster)', 'Lancer là où pointe la souris'],
       ['Clic quand ça mord', 'Ferrer'],
       ['Clic maintenu', 'Mouliner (relâcher si la ligne est trop tendue)'],
       ['1 à 6', 'Changer d’appât'],
@@ -149,8 +150,8 @@ export const TEXTS = {
       ['Échap', 'Pause'],
     ],
     touchControls: [
-      ['Joystick (en bas à gauche)', 'Ramer'],
-      ['Doigt maintenu, puis lâcher', 'Lancer (le doigt vise)'],
+      ['Joystick (en bas à gauche)', 'Ramer (poussé à fond : plus vite)'],
+      ['Toucher l’eau (glisser pour ajuster)', 'Lancer là où tu touches'],
       ['Toucher quand ça mord', 'Ferrer'],
       ['Doigt maintenu', 'Mouliner (lâcher si la ligne est trop tendue)'],
       ['Boutons en haut à droite', 'Appât, Moustache, carnet et menu'],
@@ -237,8 +238,8 @@ export const TEXTS = {
     progress: (step: number, total: number): string => `${step} / ${total}`,
     steps: {
       cast: {
-        mouse: (): string => 'Miaou ! Moi, c’est Moustache. Pour lancer, maintiens le clic sur l’eau, puis relâche : plus tu tiens, plus ça part loin.',
-        touch: 'Miaou ! Moi, c’est Moustache. Pour lancer, garde ton doigt sur l’eau, puis lâche : plus tu tiens, plus ça part loin.',
+        mouse: (): string => 'Miaou ! Moi, c’est Moustache. Pour lancer, clique sur l’eau, là où tu veux pêcher. Garde le clic enfoncé pour ajuster, puis relâche.',
+        touch: 'Miaou ! Moi, c’est Moustache. Pour lancer, touche l’eau, là où tu veux pêcher. Glisse ton doigt pour ajuster, puis lâche.',
       },
       strike: {
         mouse: (): string => 'Patience… Le bouchon frémit parfois : ce n’est rien. Quand il plonge et qu’un « ! » apparaît, clique vite pour ferrer !',
@@ -255,8 +256,8 @@ export const TEXTS = {
       },
       explore: {
         mouse: (k: KeyHints): string =>
-          `Rame avec ${k.move} ou les flèches : roseaux, rochers et eau profonde cachent d’autres poissons. Un poisson qui saute ou des bulles ? Lance juste à côté !`,
-        touch: 'Rame avec le joystick en bas à gauche : roseaux, rochers et eau profonde cachent d’autres poissons. Un poisson qui saute ou des bulles ? Lance juste à côté !',
+          `Rame avec ${k.move} ou les flèches (${k.sprint} pour aller plus vite) : roseaux, rochers et eau profonde cachent d’autres poissons. Un poisson qui saute ou des bulles ? Lance juste à côté !`,
+        touch: 'Rame avec le joystick en bas à gauche (pousse-le à fond pour aller plus vite) : roseaux, rochers et eau profonde cachent d’autres poissons. Un poisson qui saute ou des bulles ? Lance juste à côté !',
       },
       cabin: {
         mouse: (k: KeyHints): string => `Et passe me voir au ponton (touche ${k.cabin}) : demandes, vivier, boutique et même une carte. Bonne pêche !`,
@@ -335,6 +336,7 @@ export const TEXTS = {
       left: 'Tourner à gauche',
       backward: 'Reculer',
       right: 'Tourner à droite',
+      sprint: 'Ramer plus fort',
       journal: 'Carnet',
       cabin: 'Ponton de Moustache',
       keep: 'Garder au vivier',
@@ -349,6 +351,8 @@ export const TEXTS = {
   },
 
   noWater: 'Pas d’eau par là…',
+  /** Au-dessus de la jauge de visée : zone visée et distance. */
+  aimLabel: (zone: string, meters: number): string => `${zone} · ${Math.round(meters)} m`,
   hooked: 'Ferré !',
   baitLocked: 'Ramène d’abord ta ligne pour changer d’appât.',
   loadError: 'Oups, le lac n’a pas pu se charger. Détails dans la console.',

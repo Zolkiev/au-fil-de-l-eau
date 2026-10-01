@@ -118,7 +118,7 @@ export class FishingController {
       case 'IDLE':
         return this.cast.updateIdle();
       case 'CHARGING':
-        return this.cast.updateCharging();
+        return this.cast.updateCharging(dt);
       case 'CASTING':
         return this.cast.updateCasting();
       case 'WAITING':

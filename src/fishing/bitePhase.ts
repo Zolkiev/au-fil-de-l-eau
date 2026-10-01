@@ -53,6 +53,7 @@ export class BitePhase {
     const ctx = this.ctx;
     ctx.bobber.plunge();
     ctx.rippleAtBobber(1.3, 0.9, 0.8);
+    ctx.splashAtBobber(0.7);
     ctx.deps.rod.kick(CONFIG.rod.biteKick);
     ctx.deps.audio.play('bite');
     ctx.fsm.go('BITE');

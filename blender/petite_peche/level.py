@@ -1,9 +1,11 @@
-"""Niveau lake_01 : un lac aux rives irrégulières, une île, un ponton, une cabane,
-des roseaux, des rochers et une forêt de sapins et de feuillus.
+"""Niveau lake_01 : un grand lac aux rives découpées, une île boisée et un îlot
+de rochers, un ponton et la cabane de Moustache au sud (avec le vivier et un
+feu de camp), un hangar à barques et son appontement au nord, des roseaux,
+des rochers et une forêt de sapins, de feuillus et de bouleaux.
 
 Suit docs/BLENDER_CONVENTIONS.md : `water`, `spawn_boat`, `cam_default`,
-`zone_<type>_<n>`, `*_col`, `deco_*`. Unités : mètres, Z vers le haut,
-l'avant d'un objet regarde -Y.
+`zone_<type>_<n>`, `*_col`, `deco_*`, `fx_*`. Unités : mètres, Z vers le
+haut, l'avant d'un objet regarde -Y.
 """
 
 import math
@@ -11,17 +13,22 @@ import random
 
 from mathutils import Matrix, Vector
 
-from .common import (Ground, patchy, emissive_material, emissive_object, MeshBuilder, circle_points, empty, flat_polygon_object, new_collection, new_scene,
-                     oriented_quad, palette_material, rgba, smoothstep)
+from .common import (Ground, build_grid_terrain, emissive_material, emissive_object, MeshBuilder, circle_points, empty, flat_polygon_object,
+                     grid_coords, new_collection, new_scene, oriented_quad, palette_material, rgba, smoothstep)
 from .flora import Spot, build_flora, far_from
 
 SCENE_NAME = "lake_01"
 
-# Terrain : grille carrée centrée sur le lac
-TERRAIN_HALF_SIZE = 100.0
+# Terrain : grille carrée centrée sur le lac, fine sur le lac et ses berges, large sur les collines du fond
+TERRAIN_HALF_SIZE = 150.0
+TERRAIN_FINE_HALF = 92.5
 TERRAIN_CELL = 2.5
-LAKE_BOTTOM = 4.5
-ISLAND_CENTER = Vector((9.0, 8.0))
+TERRAIN_FAR_CELL = 6.0
+LAKE_BOTTOM = 5.0
+# Îles : centre, hauteur du sommet (m) et pente (m par m). Rayon à fleur d'eau = sommet / pente.
+ISLAND = (Vector((14.0, 2.0)), 1.7, 0.34)
+ISLET = (Vector((-24.0, 10.0)), 1.0, 0.42)
+ISLAND_CENTER = ISLAND[0]
 
 GRASS = [rgba(0x9dc27b), rgba(0x96bd74), rgba(0xa3c683)]
 SAND = [rgba(0xd8c59a), rgba(0xd2bf92)]
@@ -33,13 +40,14 @@ WOOD = rgba(0x9a6b47)
 WOOD_LIGHT = rgba(0xb98a5c)
 WOOD_DARK = rgba(0x6f4a32)
 ROOF = rgba(0xa0503c)
+ASH = rgba(0x4a4541)
 
 
 # --- Forme du lac et relief ---------------------------------------------------------------------
 
 def shore_radius(theta):
-    """Distance du centre à la rive selon l'angle : un lac aux contours irréguliers."""
-    return 34 + 5 * math.sin(2 * theta + 0.6) + 3 * math.sin(3 * theta - 1.1) + 1.5 * math.sin(5 * theta + 2.0)
+    """Distance du centre à la rive selon l'angle : un lac aux contours découpés (baies et pointes)."""
+    return 56 + 8 * math.sin(2 * theta + 0.6) + 5 * math.sin(3 * theta - 1.1) + 3 * math.sin(5 * theta + 2.0)
 
 
 def lake_distance(x, y):
@@ -53,24 +61,37 @@ def point_from_shore(theta, inward):
     return Vector((math.cos(theta) * radius, math.sin(theta) * radius))
 
 
+def shore_y(x, side):
+    """Ordonnée de la rive à l'abscisse `x` : rive nord (side = 1) ou sud (side = -1)."""
+    inside, outside = 0.0, 100.0
+    for _ in range(40):
+        middle = (inside + outside) / 2
+        if lake_distance(x, side * middle) > 0:
+            inside = middle
+        else:
+            outside = middle
+    return side * inside
+
+
 def hills(x, y):
-    return 2.5 + 2.5 * math.sin(x * 0.055 + 1.3) * math.cos(y * 0.047 - 0.4) + 1.2 * math.sin(x * 0.13 - y * 0.09)
+    return max(0.3, 2.5 + 2.5 * math.sin(x * 0.055 + 1.3) * math.cos(y * 0.047 - 0.4) + 1.2 * math.sin(x * 0.13 - y * 0.09))
 
 
 def terrain_height(x, y):
     distance = lake_distance(x, y)
     if distance > 0:
-        height = -LAKE_BOTTOM * smoothstep(0, 14, distance)
+        height = -LAKE_BOTTOM * smoothstep(0, 16, distance)
     else:
         land = -distance
         height = 0.9 * smoothstep(0, 5, land) + hills(x, y) * smoothstep(10, 40, land)
         # Collines qui ferment l'horizon au bord du terrain
-        height += 14 * smoothstep(68, 98, max(abs(x), abs(y)))
-    island = 1.25 - 0.55 * (Vector((x, y)) - ISLAND_CENTER).length
-    return max(height, island)
+        height += 16 * smoothstep(104, 146, max(abs(x), abs(y)))
+    for center, peak, slope in (ISLAND, ISLET):
+        height = max(height, peak - slope * (Vector((x, y)) - center).length)
+    return height
 
 
-def terrain_color(height, slope, rng):
+def terrain_color(height, slope, _x, _y, rng):
     if height < -0.6:
         return LAKEBED
     if height < 0.45:
@@ -91,78 +112,100 @@ def build():
     scene = new_scene(SCENE_NAME)
     material = palette_material()
     groups = {name: new_collection(scene, name) for name in ("Terrain", "Eau", "Decor", "Collisions", "Zones", "Reperes")}
-    south = shore_radius(-math.pi / 2)
+    decor, markers = groups["Decor"], groups["Reperes"]
+    # Rive sud au droit du ponton, rive nord au droit de l'appontement
+    south, north = -shore_y(JETTY_X, -1), shore_y(DOCK_X, 1)
 
     ground = Ground(build_terrain(groups["Terrain"], material, rng))
     build_water(groups["Eau"], material)
-    rock_spots = build_rocks(groups["Decor"], material, rng)
-    reed_spots = build_reeds(groups["Decor"], material, rng)
+    rocks = build_rocks(decor, material, rng, ground)
+    reeds = build_reeds(decor, material, rng, ground)
     cabin = Vector((9.5, -(south + 10)))
-    jetty = build_jetty(groups["Decor"], material, south)
-    build_cabin(groups["Decor"], material, cabin)
-    pen = build_fish_pen(groups["Decor"], groups["Reperes"], material, Vector((2.4, -(south + 5.6))))
-    avoid = [(cabin, 7.0), (jetty, 6.0), (pen, 3.5)]
-    build_trees(groups["Decor"], material, rng, ground, avoid=avoid)
-    build_flora(groups["Decor"], material, ground, seed=107, half_size=70, spots=lake_flora(ground, avoid))
-    build_colliders(groups["Collisions"], material, rock_spots, south)
-    build_zones(groups["Zones"], rock_spots, reed_spots, south)
-    build_markers(groups["Reperes"], south)
+    jetty = build_jetty(decor, material, south)
+    build_cabin(decor, markers, material, ground, cabin)
+    pen = build_fish_pen(decor, markers, material, Vector((2.4, -(south + 5.6))))
+    campfire = build_campfire(decor, markers, material, rng, ground, Vector((16.0, -(south + 5.5))))
+    boathouse = build_boathouse(decor, markers, material, ground, north)
+    avoid = [(cabin, 7.0), (jetty, 6.0), (pen, 3.5), (campfire, 4.0), (boathouse, 7.5), (Vector((DOCK_X, north)), 5.0)]
+    build_trees(decor, material, rng, ground, avoid=avoid)
+    build_flora(decor, material, ground, seed=107, half_size=105, spots=lake_flora(ground, avoid))
+    build_colliders(groups["Collisions"], material, rocks, south, north)
+    build_zones(groups["Zones"], rocks, reeds)
+    build_markers(markers, south)
     return scene
 
 
 def build_terrain(collection, material, rng):
-    """Grille triangulée : fond du lac, plage, prairie et collines, île comprise."""
-    builder = MeshBuilder()
-    count = int(2 * TERRAIN_HALF_SIZE / TERRAIN_CELL)
-    coord = lambda i: -TERRAIN_HALF_SIZE + i * TERRAIN_CELL
-    points = [[Vector((coord(i), coord(j), terrain_height(coord(i), coord(j)))) for j in range(count + 1)] for i in range(count + 1)]
-    for i in range(count):
-        for j in range(count):
-            a, b, c, d = points[i][j], points[i + 1][j], points[i][j + 1], points[i + 1][j + 1]
-            triangles = [(a, b, d), (a, d, c)] if (i + j) % 2 == 0 else [(a, b, c), (b, d, c)]
-            for triangle in triangles:
-                normal = (triangle[1] - triangle[0]).cross(triangle[2] - triangle[0]).normalized()
-                height = sum(p.z for p in triangle) / 3
-                middle = sum(triangle, Vector()) / 3
-                builder.polygon(triangle, patchy(terrain_color(height, 1 - normal.z, rng), middle.x, middle.y))
-    return builder.to_object("deco_terrain", material, collection)
+    """Grille triangulée : fond du lac, plage, prairie et collines, îles comprises."""
+    coords = grid_coords(TERRAIN_HALF_SIZE, TERRAIN_FINE_HALF, TERRAIN_CELL, TERRAIN_FAR_CELL)
+    return build_grid_terrain(collection, material, rng, coords, coords, terrain_height, terrain_color)
 
 
 def build_water(collection, material):
-    """Plan d'eau (seule son emprise compte : le jeu recrée sa propre surface)."""
+    """Plan d'eau : il suit la rive, un peu au-delà (seule son emprise compte : le jeu recrée sa propre surface)."""
     builder = MeshBuilder()
-    builder.polygon(circle_points((0, 0), 50, 64), rgba(0x4f9fb3))
+    segments = 96
+    ring = [point_from_shore(2 * math.pi * i / segments, -3.0).to_3d() for i in range(segments)]
+    builder.polygon(ring, rgba(0x4f9fb3))
     builder.to_object("water", material, collection)
 
 
-def build_rocks(collection, material, rng):
-    """Amas de rochers près de la rive nord-ouest (dans l'eau) et quelques-uns sur la berge."""
+# Amas de rochers dans l'eau : angle de la rive, distance à la rive
+ROCK_CLUSTERS = [(2.5, 7.0), (5.75, 8.0)]
+
+
+def build_rocks(collection, material, rng, ground):
+    """Deux amas de rochers dans l'eau (nord-ouest et sud-est), des blocs sur les berges et sur l'îlot."""
     builder = MeshBuilder()
-    center = point_from_shore(2.5, 6.0)
-    spots = []
-    for offset, size in [((0, 0), 2.0), ((2.6, 1.8), 1.4), ((-2.2, 2.0), 1.1), ((1.2, -2.6), 1.6)]:
-        position = center + Vector(offset)
-        builder.blob((position.x, position.y, -0.7), size, rng.choice(ROCK_GREY), scale=(1.2, 1.0, 0.95), jitter=0.18, rng=rng)
-        spots.append((position, size * 1.05))
-    for _ in range(7):
-        spot = point_from_shore(2.5 + rng.uniform(-0.25, 0.25), -rng.uniform(2, 7))
-        size = rng.uniform(0.5, 1.1)
-        builder.blob((spot.x, spot.y, terrain_height(spot.x, spot.y)), size, rng.choice(ROCK_GREY), scale=(1.2, 1.0, 0.7), jitter=0.2, rng=rng)
+    clusters = []
+    for theta, inward in ROCK_CLUSTERS:
+        center = point_from_shore(theta, inward)
+        spots = []
+        for offset, size in [((0, 0), 2.0), ((2.6, 1.8), 1.4), ((-2.2, 2.0), 1.1), ((1.2, -2.6), 1.6)]:
+            position = center + Vector(offset)
+            builder.blob((position.x, position.y, -0.7), size, rng.choice(ROCK_GREY), scale=(1.2, 1.0, 0.95), jitter=0.18, rng=rng)
+            spots.append((position, size * 1.05))
+        clusters.append({"center": center, "spots": spots})
+        for _ in range(7):
+            add_shore_rock(builder, rng, ground, theta + rng.uniform(-0.2, 0.2), rng.uniform(2, 7), rng.uniform(0.5, 1.1))
+    # Blocs épars tout autour du lac
+    for k in range(18):
+        add_shore_rock(builder, rng, ground, 2 * math.pi * (k + rng.random()) / 18, rng.uniform(1.5, 9), rng.uniform(0.4, 1.3))
+    # L'îlot : trois rochers serrés
+    for offset, size in [((0, 0), 1.1), ((1.0, 0.7), 0.7), ((-0.8, 0.9), 0.6)]:
+        x, y = ISLET[0].x + offset[0], ISLET[0].y + offset[1]
+        builder.blob((x, y, ground.lowest_under(x, y, size * 0.8) + 0.25 * size), size, rng.choice(ROCK_GREY),
+                     scale=(1.1, 1.0, 0.9), jitter=0.2, rng=rng)
     builder.to_object("deco_rocks", material, collection)
-    return {"center": center, "spots": spots}
+    return clusters
 
 
-def build_reeds(collection, material, rng):
-    """Deux touffes de roseaux (certains avec une massette brune) dans l'eau peu profonde."""
+def add_shore_rock(builder, rng, ground, theta, land, size):
+    """Rocher posé sur la berge du lac, à `land` mètres de l'eau."""
+    spot = point_from_shore(theta, -land)
+    add_shore_rock_at(builder, rng, ground, spot.x, spot.y, size)
+
+
+def add_shore_rock_at(builder, rng, ground, x, y, size):
+    """Rocher posé au sol en (x, y), à moitié enfoncé (jamais en l'air sur une pente)."""
+    builder.blob((x, y, ground.lowest_under(x, y, 1.2 * size)), size, rng.choice(ROCK_GREY), scale=(1.2, 1.0, 0.7), jitter=0.2, rng=rng)
+
+
+# Roselières : angle de la rive, distance à la rive
+REED_BEDS = [(0.35, 4.5), (1.9, 4.5), (3.6, 4.0), (4.2, 4.5)]
+
+
+def build_reeds(collection, material, rng, ground):
+    """Quatre roselières (certains roseaux avec une massette brune) dans l'eau peu profonde."""
     builder = MeshBuilder()
-    centers = [point_from_shore(0.35, 4.5), point_from_shore(3.9, 4.0)]
+    centers = [point_from_shore(theta, inward) for theta, inward in REED_BEDS]
     greens = [rgba(0xb9c56d), rgba(0x9fb45a), rgba(0xc8c779)]
     for center in centers:
         for _ in range(45):
-            angle, distance = rng.uniform(0, 2 * math.pi), math.sqrt(rng.random()) * 3.2
+            angle, distance = rng.uniform(0, 2 * math.pi), math.sqrt(rng.random()) * 3.4
             x, y = center.x + math.cos(angle) * distance, center.y + math.sin(angle) * distance
-            base = terrain_height(x, y)
-            height = -base + rng.uniform(1.1, 2.1)
+            base = ground.lowest_under(x, y, 0.06) - 0.05
+            height = max(0.0, -base) + rng.uniform(1.1, 2.1)
             tilt = Matrix.Rotation(rng.uniform(-0.12, 0.12), 4, 'X') @ Matrix.Rotation(rng.uniform(-0.12, 0.12), 4, 'Y')
             builder.cone((x, y, base + height / 2), 0.05, 0.01, height, 4, rng.choice(greens), rotation=tilt)
             if rng.random() < 0.3:
@@ -194,26 +237,34 @@ def lamp_post(builder, collection, name, x, y, base, height=1.5):
     return emissive_object(glass, name, lamp_glass_material(), collection)
 
 
-def build_jetty(collection, material, south):
-    """Ponton en bois qui s'avance dans l'eau, au sud, près du départ de la barque."""
-    builder = MeshBuilder()
-    x, start, end = 5.5, -(south + 4), -(south - 5)
-    y = start
-    plank = 0
+JETTY_X, DOCK_X = 5.5, -4.0
+DECK = 0.55
+
+
+def build_planks(builder, x, start, end, deck=DECK, width=1.9):
+    """Tablier de planches de y = start à y = end (start < end), sur des pieux plantés dans le fond."""
+    y, plank = start, 0
     while y < end:
-        builder.box((x, y + 0.15, 0.55), (1.9, 0.27, 0.06), WOOD_LIGHT if plank % 2 else WOOD)
+        builder.box((x, y + 0.15, deck), (width, 0.27, 0.06), WOOD_LIGHT if plank % 2 else WOOD)
         y += 0.3
         plank += 1
     y = start + 0.8
     while y < end:
-        for side in (-0.85, 0.85):
+        for side in (-(width / 2 - 0.1), width / 2 - 0.1):
             bottom = terrain_height(x + side, y) - 0.3
-            builder.box((x + side, y, (0.55 + bottom) / 2), (0.14, 0.14, 0.55 - bottom), WOOD_DARK)
+            builder.box((x + side, y, (deck + bottom) / 2), (0.14, 0.14, deck - bottom), WOOD_DARK)
         y += 1.8
+
+
+def build_jetty(collection, material, south):
+    """Ponton en bois qui s'avance dans l'eau, au sud, près du départ de la barque."""
+    builder = MeshBuilder()
+    start, end = -(south + 4), -(south - 5)
+    build_planks(builder, JETTY_X, start, end)
     # Lanterne au bout du ponton, du côté du départ de la barque (Moustache est au milieu)
-    lamp_post(builder, collection, "deco_jetty_lamp", x - 0.85, end - 0.3, 0.58)
+    lamp_post(builder, collection, "deco_jetty_lamp", JETTY_X - 0.85, end - 0.3, DECK + 0.03)
     builder.to_object("deco_jetty", material, collection)
-    return Vector((x, (start + end) / 2))
+    return Vector((JETTY_X, (start + end) / 2))
 
 
 PEN_SIDES = 16
@@ -269,62 +320,134 @@ def pen_point(center, radius, index, z):
     return Vector((center.x + math.cos(angle) * radius, center.y + math.sin(angle) * radius, z))
 
 
-def build_cabin(collection, material, position):
-    """Petite cabane de pêcheur : murs en bois, toit à deux pentes, porte, fenêtre, cheminée."""
-    builder = MeshBuilder()
-    x, y = position
-    z = terrain_height(x, y) - 0.1
+def build_hut(builder, collection, x, y, z, lake, window_name):
+    """
+    Cabane de planches : murs, toit à deux pentes, porte et petite fenêtre côté
+    terre, cheminée. `lake` : +1 si le lac est vers +Y, -1 s'il est vers -Y.
+    La fenêtre côté lac est un objet émissif à part (`window_name`), allumé la
+    nuit. Retourne le sommet de la cheminée.
+    """
     builder.box((x, y, z + 1.2), (4.0, 3.2, 2.4), WOOD)
     for side in (-1, 1):
         roof = Matrix.Rotation(side * 0.55, 4, 'Y')
         # Pans de longueurs un peu différentes : leurs bouts ne sont pas dans le même plan (sinon ils clignotent au faîtage)
         builder.box((x + side * 1.05, y, z + 2.95), (2.5, 3.7 if side < 0 else 3.74, 0.14), ROOF, rotation=roof)
-    builder.box((x - 0.8, y - 1.62, z + 0.95), (0.8, 0.06, 1.8), WOOD_DARK)
-    builder.box((x + 0.9, y - 1.62, z + 1.4), (0.9, 0.06, 0.7), rgba(0xcfe3ea))
-    builder.box((x + 1.2, y + 0.8, z + 3.4), (0.4, 0.4, 1.2), rgba(0x8a8a84))
-    builder.to_object("deco_cabin", material, collection)
-    # Fenêtre côté lac : allumée la nuit
+    builder.box((x - 0.8, y - lake * 1.62, z + 0.95), (0.8, 0.06, 1.8), WOOD_DARK)
+    builder.box((x + 0.9, y - lake * 1.62, z + 1.4), (0.9, 0.06, 0.7), rgba(0xcfe3ea))
+    builder.box((x + 1.2, y + lake * 0.8, z + 3.4), (0.4, 0.4, 1.2), rgba(0x8a8a84))
     window = MeshBuilder()
-    window.box((x - 0.7, y + 1.62, z + 1.4), (0.9, 0.06, 0.7), rgba(0x8fa9b4))
-    emissive_object(window, "deco_cabin_window", window_material(), collection)
+    window.box((x - 0.7, y + lake * 1.62, z + 1.4), (0.9, 0.06, 0.7), rgba(0x8fa9b4))
+    emissive_object(window, window_name, window_material(), collection)
+    return Vector((x + 1.2, y + lake * 0.8, z + 4.0))
+
+
+def build_cabin(collection, markers, material, ground, position):
+    """Cabane de Moustache, au sud : sa cheminée fume (Empty `fx_smoke_1`)."""
+    builder = MeshBuilder()
+    x, y = position
+    z = ground.lowest_under(x, y, 2.6) - 0.05
+    chimney = build_hut(builder, collection, x, y, z, 1, "deco_cabin_window")
+    builder.to_object("deco_cabin", material, collection)
+    empty("fx_smoke_1", markers, location=chimney + Vector((0, 0, 0.05)), display='SPHERE', size=0.3)
+
+
+def build_boathouse(collection, markers, material, ground, north):
+    """
+    Rive nord : un hangar à barques (fenêtre allumée la nuit, cheminée qui
+    fume) et un appontement à lanterne qui avance dans l'eau. Retourne la
+    position du hangar.
+    """
+    builder = MeshBuilder()
+    x, y = DOCK_X - 4.2, north + 6.5
+    z = ground.lowest_under(x, y, 2.6) - 0.05
+    chimney = build_hut(builder, collection, x, y, z, -1, "deco_boathouse_window")
+    builder.to_object("deco_boathouse", material, collection)
+    empty("fx_smoke_2", markers, location=chimney + Vector((0, 0, 0.05)), display='SPHERE', size=0.3)
+    dock = MeshBuilder()
+    start, end = north - 7, north + 4
+    build_planks(dock, DOCK_X, start, end)
+    lamp_post(dock, collection, "deco_dock_lamp", DOCK_X + 0.85, start + 0.3, DECK + 0.03)
+    dock.to_object("deco_dock", material, collection)
+    return Vector((x, y))
+
+
+def build_campfire(collection, markers, material, rng, ground, position, index=1):
+    """
+    Feu de camp : cercle de pierres, cendres, bûches en faisceau et deux
+    rondins pour s'asseoir. Le jeu y allume des flammes (Empty `fx_fire_<n>`).
+    Retourne sa position.
+    """
+    builder = MeshBuilder()
+    x, y = position
+    base = ground.lowest_under(x, y, 0.8)
+    builder.blob((x, y, base + 0.02), 0.42, ASH, scale=(1.0, 1.0, 0.22), jitter=0.1, rng=rng)
+    for k in range(8):
+        angle = 2 * math.pi * (k + rng.uniform(-0.2, 0.2)) / 8
+        px, py = x + math.cos(angle) * 0.62, y + math.sin(angle) * 0.62
+        builder.blob((px, py, ground.lowest_under(px, py, 0.2) + 0.04), rng.uniform(0.15, 0.21), rng.choice(ROCK_GREY),
+                     scale=(1.1, 1.0, 0.75), jitter=0.15, rng=rng, rotation=Matrix.Rotation(angle, 4, 'Z'))
+    for k in range(4):
+        angle = 2 * math.pi * k / 4 + 0.4
+        foot = Vector((x + math.cos(angle) * 0.4, y + math.sin(angle) * 0.4, base - 0.04))
+        tip = Vector((x + math.cos(angle + 0.5) * 0.05, y + math.sin(angle + 0.5) * 0.05, base + 0.5 + 0.03 * k))
+        add_log(builder, foot, tip, 0.06, rgba(0x5a4030))
+    for side, angle in ((-1, 0.35), (1, -0.5)):
+        px, py = x + side * 1.55, y - 0.3
+        along = Vector((math.sin(angle), math.cos(angle), 0)) * 0.7
+        middle = Vector((px, py, ground.lowest_under(px, py, 0.75) + 0.15))
+        add_log(builder, middle - along, middle + along, 0.2, WOOD_DARK)
+    builder.to_object("deco_campfire" if index == 1 else f"deco_campfire_{index}", material, collection)
+    empty(f"fx_fire_{index}", markers, location=(x, y, base + 0.14), display='SPHERE', size=0.3)
+    return Vector((x, y))
+
+
+def add_log(builder, start, end, radius, color, segments=6):
+    """Rondin (cylindre) d'un point à un autre."""
+    axis = end - start
+    rotation = axis.to_track_quat('Z', 'Y').to_matrix().to_4x4()
+    builder.cone((start + end) / 2, radius, radius * 0.9, axis.length, segments, color, rotation=rotation)
 
 
 def lake_flora(ground, avoid):
-    """Où pousse la flore du lac : sur la berge, près de l'eau, loin de la cabane, du ponton et du vivier."""
+    """Où pousse la flore du lac : sur la berge, près de l'eau, loin des constructions."""
     clear = far_from([((center.x, center.y), radius) for center, radius in avoid])
 
     def meadow(x, y):
         land = -lake_distance(x, y)
-        return 1.5 < land < 35 and ground.height(x, y) > 0.75 and ground.slope(x, y) < 0.4 and clear(x, y)
+        return 1.5 < land < 24 and ground.height(x, y) > 0.75 and ground.slope(x, y) < 0.4 and clear(x, y)
 
     def island(x, y):
-        return (Vector((x, y)) - ISLAND_CENTER).length < 2.3 and ground.height(x, y) > 0.55
+        return (Vector((x, y)) - ISLAND_CENTER).length < 3.2 and ground.height(x, y) > 0.55
 
     def beach(x, y):
         return 0 < -lake_distance(x, y) < 4 and 0.1 < ground.height(x, y) < 0.5 and clear(x, y)
 
     return {
-        "grass": Spot(380, lambda x, y: meadow(x, y) or island(x, y)),
-        "flowers": Spot(90, meadow),
-        "bushes": Spot(60, lambda x, y: meadow(x, y) and -lake_distance(x, y) > 3),
-        "pebbles": Spot(70, beach),
+        "grass": Spot(520, lambda x, y: meadow(x, y) or island(x, y)),
+        "flowers": Spot(130, meadow),
+        "bushes": Spot(90, lambda x, y: meadow(x, y) and -lake_distance(x, y) > 3),
+        "pebbles": Spot(110, beach),
     }
 
 
 def build_trees(collection, material, rng, ground, avoid):
-    """Forêt autour du lac (sapins surtout, quelques feuillus) et deux arbres sur l'île."""
+    """Forêt autour du lac (sapins surtout, des feuillus et des bouleaux) et trois arbres sur l'île."""
     builder = MeshBuilder()
     placed = 0
-    while placed < 95:
-        x, y = rng.uniform(-88, 88), rng.uniform(-88, 88)
-        if lake_distance(x, y) > -4 or any((Vector((x, y)) - center).length < radius for center, radius in avoid):
+    while placed < 270:
+        x, y = rng.uniform(-138, 138), rng.uniform(-138, 138)
+        land = -lake_distance(x, y)
+        if land < 4 or any((Vector((x, y)) - center).length < radius for center, radius in avoid):
+            continue
+        # Forêt plus dense près du lac (là où on la voit le mieux), clairsemée sur les collines du fond
+        if land > 45 and rng.random() < 0.55:
             continue
         scale = rng.uniform(0.8, 1.5)
         add_tree(builder, rng, x, y, tree_base(ground, x, y, scale), scale)
         placed += 1
-    for dx, dy, scale, fir in [(0.0, 0.0, 1.1, True), (1.2, -0.8, 0.6, False)]:
+    for dx, dy, scale, kind in [(0.0, 0.0, 1.15, 'fir'), (1.9, -1.1, 0.65, 'leafy'), (-1.6, 1.5, 0.8, 'birch')]:
         x, y = ISLAND_CENTER.x + dx, ISLAND_CENTER.y + dy
-        add_tree(builder, rng, x, y, tree_base(ground, x, y, scale), scale, fir=fir)
+        add_tree(builder, rng, x, y, tree_base(ground, x, y, scale), scale, kind=kind)
     builder.to_object("deco_trees_sway", material, collection)
 
 
@@ -343,51 +466,71 @@ def tree_base(ground, x, y, scale):
     return ground.lowest_under(x, y, 0.25 * scale) - TREE_SINK - variation
 
 
-def add_tree(builder, rng, x, y, z, scale, fir=None):
-    fir = rng.random() < 0.7 if fir is None else fir
+def add_tree(builder, rng, x, y, z, scale, kind=None):
+    """Arbre : sapin ('fir'), feuillu ('leafy') ou bouleau ('birch') ; tiré au hasard si `kind` est None."""
+    if kind is None:
+        kind = rng.choices(('fir', 'leafy', 'birch'), weights=(62, 26, 12))[0]
     trunk = rgba(0x8a6a4f)
     # Chaque arbre tourné à sa façon (angle tiré de sa position, sans toucher au tirage aléatoire) :
     # la forêt paraît moins uniforme, et deux arbres voisins n'ont pas de faces confondues
     spin = Matrix.Rotation((x * 12.9898 + y * 78.233) % (2 * math.pi), 4, 'Z')
-    if fir:
+    if kind == 'fir':
         green = rng.choice([rgba(0x5f9e6e), rgba(0x71ad73), rgba(0x4f8a67)])
         builder.cone((x, y, z + 0.7 * scale), 0.22 * scale, 0.18 * scale, 1.4 * scale, 6, trunk, rotation=spin)
         for height, radius, depth in [(1.9, 1.7, 2.4), (3.0, 1.3, 2.0), (4.0, 0.85, 1.6)]:
             builder.cone((x, y, z + height * scale), radius * scale, 0.0, depth * scale, 7, green, rotation=spin)
-    else:
+    elif kind == 'leafy':
         green = rng.choice([rgba(0x8fbf6a), rgba(0x7fb068), rgba(0xa7c96e)])
         builder.cone((x, y, z + 0.9 * scale), 0.2 * scale, 0.15 * scale, 1.8 * scale, 6, trunk, rotation=spin)
         builder.blob((x, y, z + 2.6 * scale), 1.5 * scale, green, scale=(1.0, 1.0, 0.85), jitter=0.12, rng=rng, rotation=spin)
+    else:
+        # Bouleau : tronc clair et élancé, deux houppes de feuillage léger
+        green = rng.choice([rgba(0xa9cf6f), rgba(0xbcd470), rgba(0x9cc86a)])
+        builder.cone((x, y, z + 1.6 * scale), 0.12 * scale, 0.07 * scale, 3.2 * scale, 6, rgba(0xe6e2d6), rotation=spin)
+        lean = spin @ Vector((0.35 * scale, 0, 0))
+        builder.blob((x + lean.x, y + lean.y, z + 2.7 * scale), 0.95 * scale, green, scale=(1.0, 1.0, 1.1), jitter=0.14, rng=rng, rotation=spin)
+        builder.blob((x - lean.x * 0.6, y - lean.y * 0.6, z + 3.5 * scale), 0.75 * scale, green, scale=(1.0, 1.0, 1.15), jitter=0.14, rng=rng,
+                     rotation=spin)
 
 
-def build_colliders(collection, material, rocks, south):
-    """Collisions (vues de dessus) : berge, île, rochers, ponton."""
+def island_radius(island, margin=0.6):
+    """Rayon de la collision d'une île : sa rive, plus une marge."""
+    _center, peak, slope = island
+    return peak / slope + margin
+
+
+def build_colliders(collection, material, rocks, south, north):
+    """Collisions (vues de dessus) : berge, îles, rochers, ponton, appontement."""
     ring = []
-    segments = 128
+    segments = 160
     for i in range(segments):
         a0, a1 = 2 * math.pi * i / segments, 2 * math.pi * (i + 1) / segments
         inner0, inner1 = shore_radius(a0) - 1.8, shore_radius(a1) - 1.8
-        ring.append([Vector((math.cos(a0) * inner0, math.sin(a0) * inner0, 0)), Vector((math.cos(a0) * 120, math.sin(a0) * 120, 0)),
-                     Vector((math.cos(a1) * 120, math.sin(a1) * 120, 0)), Vector((math.cos(a1) * inner1, math.sin(a1) * inner1, 0))])
+        ring.append([Vector((math.cos(a0) * inner0, math.sin(a0) * inner0, 0)), Vector((math.cos(a0) * 200, math.sin(a0) * 200, 0)),
+                     Vector((math.cos(a1) * 200, math.sin(a1) * 200, 0)), Vector((math.cos(a1) * inner1, math.sin(a1) * inner1, 0))])
     flat_polygon_object("shore_col", collection, ring, material)
-    flat_polygon_object("island_col", collection, [circle_points(ISLAND_CENTER, 2.9, 16)], material)
-    for index, (position, radius) in enumerate(rocks["spots"], start=1):
+    flat_polygon_object("island_col", collection, [circle_points(ISLAND[0], island_radius(ISLAND), 20)], material)
+    flat_polygon_object("islet_col", collection, [circle_points(ISLET[0], island_radius(ISLET), 14)], material)
+    spots = [spot for cluster in rocks for spot in cluster["spots"]]
+    for index, (position, radius) in enumerate(spots, start=1):
         flat_polygon_object(f"rock_{index:02d}_col", collection, [circle_points(position, radius, 12)], material)
-    x, start, end = 5.5, -(south + 1), -(south - 5.2)
-    flat_polygon_object("jetty_col", collection, [[Vector((x - 1.1, start, 0)), Vector((x + 1.1, start, 0)),
-                                                   Vector((x + 1.1, end, 0)), Vector((x - 1.1, end, 0))]], material)
+    for name, x, y0, y1 in (("jetty_col", JETTY_X, -(south + 1), -(south - 5.2)), ("dock_col", DOCK_X, north - 7.2, north + 1)):
+        flat_polygon_object(name, collection, [[Vector((x - 1.1, y0, 0)), Vector((x + 1.1, y0, 0)),
+                                                Vector((x + 1.1, y1, 0)), Vector((x - 1.1, y1, 0))]], material)
 
 
-def build_zones(collection, rocks, reeds, south):
+def build_zones(collection, rocks, reeds):
     """Zones de pêche : Empties « cercle » couchés à plat (le rayon est leur échelle)."""
     flat = (math.pi / 2, 0, 0)
     zones = [
-        ("zone_shallow_1", point_from_shore(-math.pi / 2 + 0.5, 5), 7),
-        ("zone_shallow_2", point_from_shore(1.4, 5), 7),
-        ("zone_deep_1", Vector((-3.0, 2.0)), 12),
-        ("zone_reeds_1", reeds[0], 6.5),
-        ("zone_reeds_2", reeds[1], 6.5),
-        ("zone_rocks_1", rocks["center"], 7),
+        ("zone_shallow_1", point_from_shore(-math.pi / 2 + 0.5, 6), 8),
+        ("zone_shallow_2", point_from_shore(1.1, 6), 8),
+        ("zone_shallow_3", point_from_shore(3.0, 6), 8),
+        ("zone_shallow_4", ISLET[0], 7),
+        ("zone_deep_1", Vector((-8.0, -14.0)), 13),
+        ("zone_deep_2", Vector((20.0, 30.0)), 12),
+        *[(f"zone_reeds_{index}", center, 6.5) for index, center in enumerate(reeds, start=1)],
+        *[(f"zone_rocks_{index}", cluster["center"], 7.5) for index, cluster in enumerate(rocks, start=1)],
     ]
     for name, position, radius in zones:
         empty(name, collection, location=(position.x, position.y, 0), rotation=flat, scale=radius, display='CIRCLE')
@@ -403,7 +546,7 @@ def build_markers(collection, south):
 
 def build_cat_marker(collection, south, spawn):
     """`npc_cat` : Moustache assis au bout du ponton (sur le tablier), tourné vers la barque au départ."""
-    position = Vector((5.5, -(south - 5) - 0.8, 0.58))
+    position = Vector((JETTY_X, -(south - 5) - 0.8, DECK + 0.03))
     toward = spawn - position
     heading = math.atan2(toward.x, -toward.y)  # l'avant d'un objet regarde -Y
     empty("npc_cat", collection, location=position, rotation=(0, 0, heading), display='ARROWS', size=0.5)

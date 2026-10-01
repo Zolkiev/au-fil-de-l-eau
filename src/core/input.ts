@@ -17,6 +17,8 @@ const BLOCKED_KEYS = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight',
 export class Input {
   /** Position du pointeur en coordonnées normalisées (-1 → 1), pour viser. */
   readonly pointer = new Vector2();
+  /** Même position en pixels d'écran (x vers la droite, y vers le bas), pour mesurer un glissement. */
+  readonly pointerPixels = new Vector2();
   private readonly surface: HTMLElement;
   /** Touches maintenues : code physique → lettre tapée (ou null). */
   private readonly held = new Map<string, string | null>();
@@ -114,6 +116,7 @@ export class Input {
     const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
     const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     this.pointer.set(x, y);
+    this.pointerPixels.set(event.clientX - rect.left, event.clientY - rect.top);
   }
 
   private readonly onPointerDown = (event: PointerEvent): void => {

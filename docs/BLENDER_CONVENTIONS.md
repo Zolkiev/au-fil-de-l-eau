@@ -48,6 +48,19 @@ sources :
   ⚠ Il **remplace tout le fichier** : à ne relancer que pour repartir de zéro
   ou après avoir modifié les générateurs. Après des retouches à la main,
   utilise seulement l'export.
+- **`blender/regenerate_levels.py`** ne recrée que les trois niveaux
+  (`lake_01`, `river_01`, `cove_01`), cuisson des ombres douces comprise, et
+  laisse les autres scènes (barque, canne, chat, pêcheur, poissons) telles
+  quelles. À lancer, fichier `petite_peche.blend` ouvert, après une
+  modification de `level.py`, `river.py`, `cove.py` ou `flora.py` ; puis
+  `export_assets.py` et `check_assets.py`. ⚠ Des retouches faites à la main
+  dans ces trois scènes seraient perdues.
+- **Taille des niveaux** : le lac fait environ 120 m de large (terrain de
+  300 m de côté), la rivière se parcourt sur 250 m (terrain de 360 × 220 m),
+  la crique s'ouvre sur 130 m et sa zone de pêche s'étend sur 260 m le long
+  de la côte (terrain de 320 m). La grille du terrain est fine (2,5 m) là où
+  l'on joue et large (6 m) sur les collines du fond (`grid_coords` dans
+  `common.py`). Compter 1,2 à 1,5 Mo par niveau exporté.
 - **Ombres douces cuites** : à la fin de `generate_assets.py`, l'occlusion
   ambiante (la part de ciel que voit chaque coin de face) est calculée avec
   Cycles et multipliée dans l'attribut « Col » du décor des niveaux
@@ -81,11 +94,12 @@ vue 3D : *Viewport Shading* › *Color* › *Attribute*.
 Un objet de décor peut aussi avoir son propre matériau, exporté tel quel.
 **Tout objet de décor à matériau émissif** (couleur d'émission non noire)
 **s'allume la nuit** : à peine lumineux le jour, il brille la nuit, avec un
-halo et, pour les premiers, une vraie lumière chaude qui éclaire les
-alentours et se reflète sur l'eau. C'est le cas des lanternes
-(`deco_jetty_lamp`, `deco_pier_lamp`, `deco_bridge_lamp`, matériau
-« LampGlass »), des fenêtres des cabanes (`deco_cabin_window`,
-`deco_hut_window`, « WindowGlow ») et de la lanterne du phare
+halo et, pour ceux qui sont les plus proches de la barque, une vraie lumière
+chaude qui éclaire les alentours et se reflète sur l'eau. C'est le cas des
+lanternes (`deco_jetty_lamp`, `deco_dock_lamp`, `deco_pier_lamp`,
+`deco_bridge_lamp`, matériau « LampGlass »), des fenêtres des cabanes
+(`deco_cabin_window`, `deco_boathouse_window`, `deco_hut_window`,
+« WindowGlow ») et de la lanterne du phare
 (`deco_lighthouse_lamp`, « LighthouseGlass »). Fais-en un objet à part (pas
 dans le même mesh qu'un mur), sans attribut « Col ». Dans les générateurs :
 `emissive_object()` et `lamp_post()`.
@@ -129,6 +143,9 @@ dans le même mesh qu'un mur), sans attribut « Col ». Dans les générateurs :
 | `fish_pen` | Empty « Circle » (facultatif) | Vivier : centre de la **surface de l'eau** du bac, rayon = échelle (couché à plat comme une zone, rotation X 90°). Le jeu y ajoute une eau transparente et les poissons gardés. Le bac lui-même est un objet de décor (`deco_fish_pen`), ouvert en haut. Sans `fish_pen`, les poissons gardés restent seulement listés au ponton. |
 | `cam_fish_pen` | Empty (facultatif) | Point de vue de la vue rapprochée du vivier (la caméra regarde le centre du bac). Sans lui, elle se place en retrait côté terre (`CONFIG.pen.viewDistance`, `viewHeight`). |
 | `beacon` | Empty (facultatif) | Centre du **faisceau tournant d'un phare** : la nuit, deux faisceaux de lumière en partent et balaient le paysage (la crique en a un, au centre de la lanterne du phare). |
+| `fx_smoke_<n>` | Empty (facultatif) | **Fumée** : des volutes montent de ce point (le haut d'une cheminée), grossissent, pâlissent et partent avec le vent. Échelle = grosseur (1 = cheminée de cabane). |
+| `fx_fire_<n>` | Empty (facultatif) | **Feu de camp** : flammes, étincelles, fumée légère, halo et lumière vacillante (plus forte la nuit). À poser au ras des bûches ; le bois et les pierres sont un objet de décor (`deco_campfire`). Échelle = taille du feu. |
+| `fx_mist_<n>` | Empty (facultatif) | **Embruns** au pied d'une cascade : nuage blanc qui s'élève de l'eau. L'avant de l'Empty (-Y) regarde **le sens où l'eau s'en va** ; le nuage s'étire en travers, sur une demi-largeur égale à l'**échelle** de l'Empty. |
 | `npc_cat` | Empty (facultatif) | Où s'assoit Moustache, le chat des demandes : position exacte (sur le ponton, la berge…) et rotation autour de Z (son regard suit -Y, comme la barque). Sans lui, Moustache n'apparaît pas dans le décor, mais ses demandes restent accessibles par le bouton 🐈. |
 | autre | — | Rendu tel quel, et listé dans la console (message d'info) pour repérer les fautes de frappe. |
 
@@ -360,6 +377,7 @@ l'extension dans `config.ts`.
 | `« assets/levels/<nom>.glb » introuvable ou illisible` | Fichier absent, mal nommé, ou exporté en `.gltf` au lieu de `.glb`. |
 | `aucun objet « water »` | L'objet d'eau n'est pas nommé exactement `water` (vérifie le nom de l'objet, pas celui du mesh). |
 | `zone « … » ignorée` | Type de zone inconnu ou numéro manquant (`zone_reeds` → `zone_reeds_1`). |
+| `effet « … » ignoré` | Sorte d'effet inconnue ou numéro manquant (`fx_smoke` → `fx_smoke_1`). Sortes : `smoke`, `fire`, `mist`. |
 | `aucun mesh « *_col »` | Aucune collision : ajoute une berge `shore_col`. |
 | `les objets « *_col » ne contiennent aucun triangle` | Les collisions sont des Empties : il faut des meshes. |
 | `« spawn_boat » est dans un mesh *_col` | Déplace l'Empty de départ dans l'eau libre. |

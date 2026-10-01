@@ -7,8 +7,8 @@ import { CONFIG } from '../config';
  */
 
 /** Actions dont le joueur peut changer la touche. */
-export type RebindableAction = 'forward' | 'left' | 'backward' | 'right' | 'journal' | 'cabin' | 'keep';
-export const REBINDABLE_ACTIONS: readonly RebindableAction[] = ['forward', 'left', 'backward', 'right', 'journal', 'cabin', 'keep'];
+export type RebindableAction = 'forward' | 'left' | 'backward' | 'right' | 'sprint' | 'journal' | 'cabin' | 'keep';
+export const REBINDABLE_ACTIONS: readonly RebindableAction[] = ['forward', 'left', 'backward', 'right', 'sprint', 'journal', 'cabin', 'keep'];
 
 /** Touches choisies par le joueur (une par action) ; les autres gardent celles de config.ts. */
 export type KeyBindings = Partial<Record<RebindableAction, string>>;
@@ -87,6 +87,7 @@ export function movementLabel(): string {
 /** Noms des touches actuelles, pour les textes (invites, aide, tutoriel). */
 export interface KeyHints {
   readonly move: string;
+  readonly sprint: string;
   readonly journal: string;
   readonly cabin: string;
   readonly keep: string;
@@ -95,6 +96,7 @@ export interface KeyHints {
 export function keyHints(): KeyHints {
   return {
     move: movementLabel(),
+    sprint: keyLabel(mainKey('sprint')),
     journal: keyLabel(mainKey('journal')),
     cabin: keyLabel(mainKey('cabin')),
     keep: keyLabel(mainKey('keep')),

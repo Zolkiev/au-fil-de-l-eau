@@ -65,14 +65,15 @@ export class Oars {
   update(dt: number, controls: BoatControls, stowed: boolean): void {
     // « Droite » = +1 : pour tourner à droite, la rame gauche pousse et la droite recule
     const drive = { l: MathUtils.clamp(controls.throttle + controls.turn, -1, 1), r: MathUtils.clamp(controls.throttle - controls.turn, -1, 1) };
+    const rate = controls.sprint && controls.throttle > 0 ? CONFIG.boat.sprint.strokeRate : 1;
     this.oars.forEach((oar, side) => {
-      this.animate(oar, dt, stowed ? null : drive[side]);
+      this.animate(oar, dt, stowed ? null : drive[side], rate);
       this.apply(oar);
     });
   }
 
-  /** Coup de rame (drive ≠ 0), repos (drive ≈ 0) ou rangement (drive null). */
-  private animate(oar: Oar, dt: number, drive: number | null): void {
+  /** Coup de rame (drive ≠ 0), repos (drive ≈ 0) ou rangement (drive null) ; `rate` : × cadence (ramer fort). */
+  private animate(oar: Oar, dt: number, drive: number | null, rate: number): void {
     const { strokeRate, sweep, dipIn, dipOut, dipRest, stowSweep, stowDip, response } = CONFIG.oars;
     let targetSweep: number = 0;
     let targetDip: number = dipRest;
@@ -80,7 +81,7 @@ export class Oars {
       targetSweep = stowSweep;
       targetDip = stowDip;
     } else if (Math.abs(drive) > 0.05) {
-      oar.phase += dt * strokeRate * 2 * Math.PI * drive;
+      oar.phase += dt * strokeRate * rate * 2 * Math.PI * drive;
       // Poussée quand la pelle part vers l'arrière (avancer) ; le sens s'inverse tout seul en marche arrière
       const inWater = MathUtils.smoothstep(-Math.sin(oar.phase), 0, 0.35);
       targetSweep = sweep * Math.cos(oar.phase);

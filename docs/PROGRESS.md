@@ -22,11 +22,14 @@
 | + | Polish visuel (3) : ombres douces cuites, petite flore, matériel dans la barque | ✅ Livré le 2026-09-30, **à tester** |
 | + | Le pêcheur et les rames animées | ✅ Livré le 2026-09-30, **à tester** |
 | + | Qualité graphique (Auto / Basse / Moyenne / Haute) et compteur d'images | ✅ Livré le 2026-09-30, **à tester** |
+| + | Grands niveaux, barque plus rapide (sprint), visée directe du lancer, effets (fumée, feu, embruns, éclats) | ✅ Livré le 2026-10-01, **à tester** |
 
-## Prochaines pistes (fin de la session du 2026-09-30)
+## Prochaines pistes (fin de la session du 2026-10-01)
 
 - **Ajuster la qualité graphique** d'après les images par seconde mesurées
-  sur iPhone (compteur : Réglages › Affichage › Images par seconde).
+  sur iPhone (compteur : Réglages › Affichage › Images par seconde). Les
+  niveaux sont plus grands et il y a des particules en plus : la mesure
+  compte d'autant plus.
 - **Personnaliser le pêcheur** : bobs, cirés, écharpes à la boutique de
   Moustache.
 - **Plus de vie sur l'eau** : canards, nénuphars, grenouilles le soir,
@@ -35,6 +38,104 @@
   source : banques gratuites ou génération par IA).
 
 ---
+
+## Grands niveaux, sprint, visée directe et effets
+
+### Livré
+
+- **Des lieux bien plus grands** (les trois niveaux ont été régénérés dans
+  Blender) :
+
+  | | Avant | Maintenant |
+  | --- | --- | --- |
+  | Lac | ~70 m de large | ~120 m de large, rives découpées (baies, pointes) |
+  | Rivière | ~120 m navigables | ~250 m, méandres plus amples, lit plus large |
+  | Crique | baie de ~55 m, pêche sur ~90 m | baie de ~130 m, pêche sur ~260 m de côte |
+
+  - **Lac** : une grande île boisée et un îlot de rochers, 4 roselières,
+    2 amas de rochers, 2 fosses profondes, 4 hauts-fonds (12 zones au lieu
+    de 6). Au nord, un **hangar à barques** avec son appontement et sa
+    lanterne ; au sud, un **feu de camp** près de la cabane de Moustache.
+    Des bouleaux dans la forêt, plus dense près de l'eau.
+  - **Rivière** : une **île de graviers** au milieu du courant, un second
+    chaos de rochers, une seconde roselière et un **grand calme profond**
+    tout en aval (10 zones au lieu de 6) ; un bivouac (feu de camp) sur la
+    rive, près du départ.
+  - **Crique** : un **îlot rocheux** au milieu de la baie, un second
+    herbier, 3 fosses (9 zones au lieu de 5), un feu de camp sur la plage.
+    Les bouées referment aussi la zone sur les côtés.
+- **Barque plus rapide** : 2,8 m/s au lieu de 2,2. Et on peut **ramer
+  fort** : touche **Maj** maintenue (modifiable dans Réglages › Clavier),
+  ou **joystick poussé à fond** vers l'avant sur téléphone (il se cerne de
+  jaune) → 4,9 m/s, les rames battent plus vite, l'étrave soulève des
+  gouttes. En relâchant, la barque revient en douceur à sa vitesse normale.
+  Pas de jauge d'endurance : on rame fort tant qu'on veut.
+- **Visée directe du lancer** : le bouchon part **là où l'on pointe**.
+  Fini la jauge qui va et vient.
+  - Souris : un clic sur l'eau lance à cet endroit. En gardant le clic, le
+    repère suit la souris ; on relâche pour lancer.
+  - Doigt : on touche l'eau, là où l'on veut pêcher. En gardant le doigt
+    posé, on glisse à gauche ou à droite pour tourner, vers le haut ou le
+    bas pour allonger ou raccourcir **finement** (11 cm par pixel), puis on
+    lâche.
+  - Pendant la visée : anneau sur l'eau, **trajectoire en pointillés**,
+    jauge de portée, et au-dessus la zone visée et la distance
+    (« 🐟 Roseaux · 14 m »). Portée inchangée : 4 à 22 m.
+- **Effets** (nouvelles conventions Blender `fx_*`, voir
+  `docs/BLENDER_CONVENTIONS.md`) :
+  - **fumée** des cheminées (cabane et hangar du lac), qui part avec le
+    vent ;
+  - **feux de camp** (un par lieu) : flammes low poly qui vacillent,
+    étincelles, fumée, halo, et une lumière chaude qui tremble sur le sol
+    et les arbres voisins, surtout la nuit ;
+  - **embruns** au pied de la cascade ;
+  - **gouttes projetées** au plouf du bouchon, à la touche, aux à-coups du
+    poisson, à la prise, aux sauts des poissons, aux coups de rame ;
+  - **scintillement de l'eau** : de petits éclats de soleil (ou de lune)
+    clignotent du côté de la lumière ; très visible au coucher du soleil.
+- **Lumières de nuit** : les vraies lumières vont maintenant aux lanternes,
+  fenêtres et feux **les plus proches de la barque** (en fondu), au lieu
+  des premières du fichier : chaque coin du lac s'éclaire quand on y
+  arrive.
+- Qualité graphique : en Basse, moitié moins de particules.
+- Réglages : `CONFIG.boat` (dont `sprint`), `CONFIG.touch`
+  (`stickSprintZone`, `aimMetersPerPixel`), `CONFIG.fishing` (`aimPath`),
+  `CONFIG.effects`, `CONFIG.water.sparkle`, `CONFIG.nightLights`.
+
+### Vérifications déjà faites
+
+- Contrôle des assets (`check_assets.py`) sur les trois niveaux : aucune
+  face superposée, aucun décor qui flotte.
+- Les trois lieux chargés en jeu, captures de jour et de nuit : lac vu du
+  départ et du feu de camp, rivière au départ et au pied de la cascade
+  (embruns), crique au coucher du soleil (éclats dans le reflet), de nuit
+  (feu de plage, îlot) et face au large (bouées).
+- Visée à la souris : le repère suit le pointeur (13 m visés → 13 m
+  affichés), le bouchon tombe sur le repère. Visée au doigt : glisser de
+  50 px vers le haut ajoute 6 m ; à gauche, le repère tourne.
+- Vitesse mesurée : 2,8 m/s, 4,9 m/s en ramant fort, retour à 2,8 m/s.
+- 14 gouttes au plouf du bouchon ; gouttes à l'étrave en ramant fort.
+- Types et build : sans erreur.
+
+### Comment tester
+
+- Rame vers le nord du lac (hangar à barques), de nuit de préférence :
+  fenêtre, lanterne et reflets s'allument à l'approche.
+- Sur ton iPhone : pousse le joystick à fond, puis essaie la visée
+  (toucher, glisser, lâcher) sur un poisson qui saute.
+- Console : `game.travel('river')`, `game.travel('cove')`,
+  `game.clock.setHour(22)`.
+
+### Limites connues
+
+- Les images par seconde n'ont pas été mesurées sur téléphone avec ces
+  niveaux plus grands (≈ 75 000 à 90 000 triangles par niveau, petite flore
+  comprise ; elle est cachée en qualité Basse).
+- Les niveaux pèsent 1,2 à 1,5 Mo chacun (au lieu de 0,9 à 1 Mo).
+- Un doigt posé tout près de la barque vise au plus court (4 m) : il faut
+  glisser vers le haut pour allonger.
+- La caméra traîne un peu derrière la barque quand on rame fort (voulu :
+  on sent la vitesse).
 
 ## Qualité graphique et compteur d'images
 

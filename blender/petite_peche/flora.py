@@ -35,27 +35,29 @@ class Spot:
 
 def build_flora(collection, material, ground, seed, half_size, spots):
     """
-    Sème la flore dans le carré de demi-côté `half_size` (m). `spots` associe
+    Sème la flore dans le carré de demi-côté `half_size` (m), ou le rectangle
+    de demi-côtés `half_size = (x, y)`. `spots` associe
     chaque sorte ("grass", "flowers", "bushes", "pebbles") à sa règle (Spot) ;
     une sorte absente n'est pas semée. L'herbe et les fleurs poussent par
     taches : `count` est alors le nombre de taches.
     """
     rng = random.Random(seed)
+    half_x, half_y = half_size if isinstance(half_size, tuple) else (half_size, half_size)
     makers = {"grass": (add_grass_patch, "deco_grass_sway"), "flowers": (add_flower_patch, "deco_flowers_sway"),
               "bushes": (add_bush, "deco_bushes"), "pebbles": (add_pebble, "deco_pebbles")}
     for kind, spot in spots.items():
         add, name = makers[kind]
         builder = MeshBuilder()
         for _ in range(spot.count):
-            point = pick_point(rng, half_size, spot.where)
+            point = pick_point(rng, half_x, half_y, spot.where)
             if point:
                 add(builder, rng, ground, *point, spot.where)
         builder.to_object(name, material, collection)
 
 
-def pick_point(rng, half_size, where):
+def pick_point(rng, half_x, half_y, where):
     for _ in range(ATTEMPTS):
-        x, y = rng.uniform(-half_size, half_size), rng.uniform(-half_size, half_size)
+        x, y = rng.uniform(-half_x, half_x), rng.uniform(-half_y, half_y)
         if where(x, y):
             return x, y
     return None

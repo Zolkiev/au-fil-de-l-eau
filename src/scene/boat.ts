@@ -10,6 +10,8 @@ export interface BoatControls {
   readonly throttle: number;
   /** -1 (gauche) → 1 (droite). */
   readonly turn: number;
+  /** Ramer fort : plus vite, en marche avant seulement. */
+  readonly sprint: boolean;
 }
 
 const TAU = Math.PI * 2;
@@ -67,7 +69,7 @@ export class Boat {
   /** Déplacement selon les commandes (seulement quand le jeu tourne). */
   update(dt: number, controls: BoatControls): void {
     this.steer(dt, controls.turn);
-    this.propel(dt, controls.throttle);
+    this.propel(dt, controls.throttle, controls.sprint && controls.throttle > 0);
     this.move(dt);
   }
 
@@ -86,11 +88,14 @@ export class Boat {
     this.root.rotation.y += this.yawRate * dt;
   }
 
-  private propel(dt: number, throttle: number): void {
-    const { acceleration, waterDrag, maxForwardSpeed, maxBackwardSpeed } = CONFIG.boat;
-    this.velocity += throttle * acceleration * dt;
-    this.velocity *= Math.exp(-waterDrag * dt);
-    this.velocity = MathUtils.clamp(this.velocity, -maxBackwardSpeed, maxForwardSpeed);
+  private propel(dt: number, throttle: number, sprint: boolean): void {
+    const { acceleration, waterDrag, maxForwardSpeed, maxBackwardSpeed, sprint: boost } = CONFIG.boat;
+    const drag = Math.exp(-waterDrag * dt);
+    // Sans pousser, la barque glisse sur son erre : c'est aussi ce qui la ramène en douceur à sa vitesse normale après un sprint
+    const coasting = this.velocity * drag;
+    const push = throttle * acceleration * (sprint ? boost.acceleration : 1);
+    const top = maxForwardSpeed * (sprint ? boost.speed : 1);
+    this.velocity = MathUtils.clamp((this.velocity + push * dt) * drag, Math.min(-maxBackwardSpeed, coasting), Math.max(top, coasting));
   }
 
   private move(dt: number): void {

@@ -53,6 +53,8 @@ export interface FishingDeps {
   readonly weather: () => WeatherId;
   /** Coins où les poissons se montrent (sauts, bulles). */
   readonly hotspots: HotspotQuery;
+  /** Gerbe de gouttes à la surface de l'eau en (x, z) ; `strength` : 1 = plouf du bouchon. */
+  readonly splash: (x: number, z: number, strength: number) => void;
 }
 
 /** Ce que la pêche annonce au reste du jeu (statistiques, sauvegarde…). */
@@ -87,7 +89,7 @@ export class FishingContext {
   hotspot = false;
   /** Temps pour ferrer (s) : CONFIG.fishing.hookWindow, allongé par le réglage « Ferrage facile ». */
   hookWindow: number = CONFIG.fishing.hookWindow;
-  /** Puissance du lancer en cours de charge (0 → 1). */
+  /** Portée du lancer visé (0 = au plus près → 1 = au plus loin) : la canne part d'autant plus en arrière. */
   power = 0;
   /** Cap visé pendant la charge (rad). */
   aimYaw = 0;
@@ -103,7 +105,7 @@ export class FishingContext {
     this.bobber = new Bobber(deps.bobberModel, deps.level.water.level);
     this.line = new FishingLine(deps.level.water.level);
     this.aim = new CastAim(deps.level);
-    deps.scene.add(this.bobber.object, this.line.object, this.ripples.group, this.aim.marker);
+    deps.scene.add(this.bobber.object, this.line.object, this.ripples.group, this.aim.marker, this.aim.path);
     deps.scene.add(this.showcase.group, this.showcase.light);
     this.fsm.onChange((state) => this.updatePrompt(state));
     this.updatePrompt(this.fsm.state);
@@ -114,6 +116,12 @@ export class FishingContext {
   rippleAtBobber(radius: number, duration?: number, strength?: number): void {
     const { x, z } = this.bobber.position;
     this.ripples.spawn(x, this.deps.level.water.level, z, radius, duration, strength);
+  }
+
+  /** Gerbe de gouttes là où est le bouchon. */
+  splashAtBobber(strength: number): void {
+    const { x, z } = this.bobber.position;
+    this.deps.splash(x, z, strength);
   }
 
   /** La ligne revient sans poisson, sans aucune pénalité. */

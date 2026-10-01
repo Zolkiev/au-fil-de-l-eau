@@ -49,7 +49,7 @@ export class FishingHud {
     this.catchPopup = new CatchPopup(layer);
   }
 
-  /** Jauge de puissance (0 → 1), avec le nom de la zone visée. */
+  /** Jauge de portée du lancer (0 → 1), avec la zone visée et la distance. */
   showPower(power: number, label: string): void {
     this.gauge.hidden = false;
     this.gaugeFill.style.transform = `scaleX(${power})`;

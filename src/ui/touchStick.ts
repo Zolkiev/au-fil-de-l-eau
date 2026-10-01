@@ -10,6 +10,8 @@ import { createElement } from './hud';
 export class TouchStick {
   /** Direction de -1 à 1 : x = virage (droite positive), y = poussée (avant positif). */
   readonly value = { x: 0, y: 0 };
+  /** Poussé à fond vers l'avant : on rame plus fort. */
+  sprint = false;
   private readonly root = createElement('touch-stick');
   private readonly knob = createElement('touch-stick-knob');
   private pointerId: number | null = null;
@@ -57,7 +59,14 @@ export class TouchStick {
     this.pointerId = null;
     this.value.x = 0;
     this.value.y = 0;
+    this.setSprint(false);
     this.knob.style.transform = '';
+  }
+
+  private setSprint(sprint: boolean): void {
+    if (sprint === this.sprint) return;
+    this.sprint = sprint;
+    this.root.classList.toggle('is-sprint', sprint);
   }
 
   /** Le bouton suit le doigt sans sortir du cercle. */
@@ -67,6 +76,7 @@ export class TouchStick {
     let dx = event.clientX - (rect.left + radius);
     let dy = event.clientY - (rect.top + radius);
     const distance = Math.hypot(dx, dy);
+    this.setSprint(dy < 0 && (distance / radius) * this.sensitivity >= CONFIG.touch.stickSprintZone);
     if (distance > radius) {
       dx *= radius / distance;
       dy *= radius / distance;
