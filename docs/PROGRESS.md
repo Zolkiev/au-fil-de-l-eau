@@ -25,7 +25,7 @@
 | + | Grands niveaux, barque plus rapide (sprint), visée directe du lancer, effets (fumée, feu, embruns, éclats) | ✅ Livré le 2026-10-01, **à tester** |
 | + | Vie sur l'eau, trouvailles à rapporter à Moustache, tenue du pêcheur | ✅ Livré le 2026-10-01, **à tester** |
 | + | Jeu traduit en anglais, choix de la langue sur l'écran titre | ✅ Livré le 2026-10-01, **à tester** |
-| + | Son adouci : mixage refait, limiteur, fondu d'entrée | ✅ Livré le 2026-10-01, **à écouter** |
+| + | Son adouci : mixage refait (deux passes), fondu d'entrée | ✅ Livré le 2026-10-01, **à écouter** |
 
 ## Prochaines pistes (fin de la session du 2026-10-01)
 
@@ -52,52 +52,63 @@
 ### Livré
 
 Le son était trop fort au réglage par défaut. Le mixage a été refait à
-partir de mesures (niveau de chaque son généré), pour qu'il soit correct
-sans passer par les réglages. Niveaux en sortie, curseurs par défaut :
+partir de mesures, pour qu'il soit discret sans passer par les réglages.
+Niveaux en sortie, curseurs par défaut :
 
-| | Avant | Maintenant |
-| --- | --- | --- |
-| Touche (le son le plus fort), en crête | -6 dB | -16 dB |
-| Plouf, prise, ligne qui casse, en crête | -8 à -10 dB | -18 à -19 dB |
-| Cliquetis du moulinet, en crête | -14 dB | -28 dB |
-| Ambiance du lac, en moyenne | -25 dB | -36 dB |
-| Pluie, en moyenne | -19 dB | -34 dB |
-| Jour + rivière + pluie + vent cumulés | -17 dB | -30 dB |
-| Musique (une note), en crête | -25 dB | -28 dB |
+| | Au départ | 1ʳᵉ passe (réelle) | Maintenant |
+| --- | --- | --- | --- |
+| Touche (le son le plus fort), en crête | -6 dB | ≈ -11 dB | -19 dB |
+| Plouf, prise, ligne qui casse, en crête | -8 à -10 dB | ≈ -13 dB | -22 dB |
+| Cliquetis du moulinet, en crête | -14 dB | ≈ -22 dB | -32 dB |
+| Ambiance du lac, en moyenne | -25 dB | ≈ -30 dB | -44 dB |
+| Pluie, en moyenne | -19 dB | ≈ -29 dB | -42 dB |
+| Jour + rivière + pluie + vent cumulés | -17 dB | ≈ -24 dB | -37 dB |
+| Musique (une note), en crête | -25 dB | ≈ -23 dB | -30 dB |
 
-- **Tout est plus doux** d'environ 10 dB (deux fois moins fort à l'oreille),
-  les ambiances de 11 à 15 dB. La musique baisse peu : elle ressort mieux.
+- **Les ambiances ne sont plus qu'un fond** : environ 20 dB sous le niveau
+  de départ (quatre fois moins fort à l'oreille). Les effets baissent de
+  13 dB.
 - **Souffle adouci** : un filtre retire l'aigu des ambiances. La pluie et
-  l'eau vive étaient un sifflement continu, fatigant ; ce sont maintenant
-  des bruits sourds. Le cliquetis du moulinet claque moins.
-- **Limiteur en sortie** : plusieurs sons en même temps (touche + plouf +
-  pluie) ne saturent plus.
+  l'eau vive étaient un sifflement continu ; ce sont maintenant des bruits
+  sourds. Le cliquetis du moulinet claque moins.
 - **Fondu d'entrée** : au premier geste, le son monte en 2 s au lieu de
   démarrer d'un coup.
-- **Curseurs de volume plus fins** : ils suivent une courbe au carré (le bas
-  du curseur devient utilisable). À 100 %, le volume général est 4 dB
-  au-dessus du réglage par défaut.
+- **Curseurs de volume plus fins** : ils suivent une courbe au carré. À
+  100 %, le volume général est 4 dB au-dessus du réglage par défaut.
 - Les réglages déjà enregistrés des joueurs ne changent pas : c'est le
   mixage lui-même qui a baissé, tout le monde en profite.
 - Réglages : `CONFIG.audio` (`outputGain`, `volumes`, `ambience`, `music`,
-  `limiter`, `fadeInSeconds`).
+  `fadeInSeconds`).
+
+### L'erreur de la première passe
+
+La première version ajoutait un « limiteur » en sortie (le compresseur de
+WebAudio). Or ce nœud applique de lui-même un **gain de rattrapage** :
++5,4 dB mesurés sur les sons calmes. La baisse annoncée (-10 dB) n'était
+donc que de moitié en vrai, et les ambiances restaient fortes. Le limiteur
+a été retiré (à ces niveaux, rien ne peut saturer), et les niveaux encore
+baissés.
 
 ### Vérifications déjà faites
 
-- Niveaux calculés avant et après pour chaque effet et chaque ambiance
-  (tableau ci-dessus), filtre compris.
-- Dans le navigateur : muet avant le premier geste, puis fondu jusqu'au
-  niveau voulu ; calque de pluie qui monte avec la météo ; aucune erreur.
+- Niveaux calculés pour chaque effet et chaque ambiance, filtre compris.
+- **Mesure dans le jeu lui-même** (sonde branchée sur la sortie, jeu en
+  cours) : ambiance du lac seule à -45 dB en moyenne, -29 dB en crête,
+  conforme au calcul (-44 et -29). Avec la musique : -40 dB en moyenne.
+- Gain de rattrapage du compresseur mesuré à part : +5,4 dB.
+- Muet avant le premier geste, puis fondu jusqu'au niveau voulu.
 
 ### Limites connues
 
-- **Je n'ai pas pu écouter** : les niveaux sont mesurés, pas jugés à
-  l'oreille. Si c'est encore trop fort (ou trop faible), un seul nombre à
-  changer : `CONFIG.audio.outputGain` (0,5 ; -6 dB à chaque division par
-  deux).
+- **Je ne peux pas écouter** : les niveaux sont mesurés, pas jugés à
+  l'oreille. Un seul nombre règle l'ensemble : `CONFIG.audio.outputGain`
+  (0,32 ; -6 dB à chaque division par deux). Pour les ambiances seules :
+  `CONFIG.audio.ambience.volume` (0,22).
 - Ces niveaux valent pour les sons générés. De vrais fichiers audio auront
   leur propre niveau : il faudra revoir `volumes` et le filtre
   (`ambience.lowpassHz`, 0 pour le couper).
+- Sur téléphone, il faut passer par « Mettre à jour » dans le menu pour
+  entendre la nouvelle version ; sinon l'ancienne reste en place.
 
 ## Anglais et choix de la langue
 

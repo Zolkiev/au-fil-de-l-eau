@@ -199,9 +199,10 @@ function createContext(): AudioContext | null {
 }
 
 /**
- * Sortie ← limiteur ← master ← effets, ambiance (← filtre doux ← calques jour,
- * nuit, rivière, pluie, vent, mer), musique. Le master reste muet jusqu'au
- * fondu d'entrée (premier geste du joueur).
+ * Sortie ← master ← effets, ambiance (← filtre doux ← calques jour, nuit,
+ * rivière, pluie, vent, mer), musique. Le master reste muet jusqu'au fondu
+ * d'entrée (premier geste du joueur). Surtout pas de DynamicsCompressor en
+ * sortie : il ajoute un gain de rattrapage qui remonte tous les sons calmes.
  */
 function createChannels(context: AudioContext): Channels {
   const gain = (output: AudioNode): GainNode => {
@@ -209,7 +210,7 @@ function createChannels(context: AudioContext): Channels {
     node.connect(output);
     return node;
   };
-  const master = silent(gain(createLimiter(context)));
+  const master = silent(gain(context.destination));
   const ambience = gain(master);
   const layers = softened(context, ambience);
   return {
@@ -226,19 +227,6 @@ function createChannels(context: AudioContext): Channels {
       sea: silent(gain(layers)),
     },
   };
-}
-
-/** Limiteur branché sur la sortie : plusieurs sons en même temps ne saturent pas. */
-function createLimiter(context: AudioContext): AudioNode {
-  const { threshold, knee, ratio, attack, release } = CONFIG.audio.limiter;
-  const limiter = context.createDynamicsCompressor();
-  limiter.threshold.value = threshold;
-  limiter.knee.value = knee;
-  limiter.ratio.value = ratio;
-  limiter.attack.value = attack;
-  limiter.release.value = release;
-  limiter.connect(context.destination);
-  return limiter;
 }
 
 /** Entrée des calques d'ambiance : un passe-bas qui en adoucit le souffle (ou `output` tel quel sans filtre). */

@@ -686,11 +686,15 @@ export const CONFIG = {
   },
 
   /**
-   * Son. Le mixage est réglé pour rester doux au réglage par défaut, sans
-   * passer par le menu : ambiances autour de -36 dB en moyenne, effets entre
-   * -18 et -34 dB en crête (la touche, le plus fort, vers -16 dB). Niveaux
-   * mesurés sur les sons générés ; à revoir si de vrais fichiers les
-   * remplacent (voir docs/PROGRESS.md).
+   * Son. Le mixage est réglé pour rester discret au réglage par défaut, sans
+   * passer par le menu : ambiances autour de -44 dB en moyenne (un fond à
+   * peine présent), effets entre -19 et -32 dB en crête (la touche, le plus
+   * fort, vers -19 dB). Niveaux mesurés sur les sons générés ; à revoir si
+   * de vrais fichiers les remplacent (voir docs/PROGRESS.md).
+   *
+   * Pas de compresseur ni de limiteur en sortie : celui de WebAudio ajoute
+   * de lui-même un gain de rattrapage (+5 dB mesurés sur les sons calmes),
+   * ce qui remontait tout. À ces niveaux, rien ne peut saturer.
    */
   audio: {
     /**
@@ -698,14 +702,9 @@ export const CONFIG = {
      * curseurs suivent une courbe au carré (plus fine vers le bas) : au
      * réglage par défaut (80 %), le niveau vaut 0,64 × outputGain.
      */
-    outputGain: 0.5,
+    outputGain: 0.32,
     /** Le son monte en douceur au premier geste du joueur, au lieu de démarrer d'un coup (s). */
     fadeInSeconds: 2,
-    /**
-     * Limiteur en sortie : il retient les crêtes quand plusieurs sons
-     * tombent en même temps (seuil en dB, taux de compression).
-     */
-    limiter: { threshold: -12, knee: 6, ratio: 12, attack: 0.003, release: 0.25 },
     /** Fichiers de assets/audio/ ; un fichier absent est remplacé par un son généré. */
     files: {
       cast: 'audio/cast.ogg',
@@ -733,7 +732,7 @@ export const CONFIG = {
         sea: 'audio/sea.ogg',
       },
       /** Volume de l'ensemble des ambiances (les boucles jour et nuit sont à 1 dans cet ensemble). */
-      volume: 0.35,
+      volume: 0.22,
       /** Calques ajoutés aux boucles jour et nuit : ressac (mer), eau vive (rivière), pluie et vent à leur plus fort. */
       seaVolume: 1.4,
       riverVolume: 0.85,
@@ -746,7 +745,7 @@ export const CONFIG = {
       lowpassHz: 4000,
     },
     /** Musique : ce fichier en boucle s'il existe, sinon une petite boîte à musique générée. */
-    music: { file: 'audio/music.ogg', volume: 0.6 },
+    music: { file: 'audio/music.ogg', volume: 0.75 },
   },
 
   /** Réglages par défaut (modifiables dans le menu, sauvegardés). */

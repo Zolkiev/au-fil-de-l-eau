@@ -276,9 +276,11 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   `#`). Les vagues sont définies une seule fois (`CONFIG.water.waves`) et
   existent en GLSL (`waveGlsl`) et en TS (`waveHeight`) : tout ce qui flotte
   doit utiliser `waveHeight`.
-- Audio : trois canaux (sfx, ambience, music) sous un master, suivi d'un
-  limiteur ; les calques d'ambiance passent par un passe-bas
-  (`ambience.lowpassHz`). Ambiance jour et nuit en boucles fondues
+- Audio : trois canaux (sfx, ambience, music) sous un master, branché
+  directement sur la sortie ; les calques d'ambiance passent par un
+  passe-bas (`ambience.lowpassHz`). Ne jamais mettre de
+  `DynamicsCompressorNode` en sortie : son gain de rattrapage automatique
+  (+5 dB mesurés) remonte tous les sons calmes. Ambiance jour et nuit en boucles fondues
   (`setNight`). `MusicBox` sert de musique générative si `audio/music.ogg`
   est absent. Volumes = (curseur du joueur)² × `CONFIG.audio` ; niveau
   général = `outputGain`. Le master est muet jusqu'au premier geste, puis
@@ -286,7 +288,10 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   s'est plaint d'un son trop fort) : niveaux mesurés dans
   `docs/PROGRESS.md` › « Son adouci ». Pour re-mesurer : importer
   `src/audio/synth.ts` dans un script Node avec un faux contexte
-  (`sampleRate`, `createBuffer`) et calculer crête et niveau moyen.
+  (`sampleRate`, `createBuffer`) et calculer crête et niveau moyen ; puis
+  toujours vérifier la chaîne réelle dans le navigateur, avec un
+  `AnalyserNode` branché sur `game.audio.channels.master` (le calcul seul
+  avait manqué le gain du compresseur).
 - Réglages : `Settings` (`src/core/settings.ts`), valeurs par défaut dans
   `CONFIG.settingsDefaults`, relus par `parseSettings`, appliqués par
   `Game.applySettings()`, modifiés depuis `SettingsPanel`.
