@@ -12,7 +12,8 @@
    (toit du phare au-dessus de sa lanterne).
 
 Ignorés : collisions (*_col), zones, water, water_mask (invisibles ou
-remplacés par le jeu).
+remplacés par le jeu), et les formes au choix d'un même emplacement entre
+elles (`skin_hull_*`… : une seule est montrée à la fois).
 
 À lancer dans Blender (onglet Scripting) ou via le MCP Blender :
     runpy.run_path(".../blender/check_assets.py", run_name="__not_main__")["main"]()
@@ -100,6 +101,16 @@ def overlap(t1, t2):
     return True
 
 
+def rival_skins(name1, name2):
+    """
+    Deux formes au choix d'un même emplacement (`skin_<emplacement>_<forme>`,
+    par exemple deux coques) : le jeu n'en montre qu'une à la fois, elles ne
+    peuvent pas se disputer l'affichage.
+    """
+    first, second = name1.split(".")[0].split("_"), name2.split(".")[0].split("_")
+    return first[0] == second[0] == "skin" and first[1:2] == second[1:2] and first[2:] != second[2:]
+
+
 def overlapping_faces(scene):
     """Faces superposées visibles, regroupées par paire d'objets."""
     buckets = defaultdict(list)
@@ -120,7 +131,7 @@ def overlapping_faces(scene):
             name1, face1, tri1, points, facing1, double1 = first
             name2, face2, tri2, _, facing2, double2 = second
             visible = facing1 == facing2 or double1 or double2
-            if (name1, face1) == (name2, face2) or not visible or not overlap(tri1, tri2):
+            if (name1, face1) == (name2, face2) or rival_skins(name1, name2) or not visible or not overlap(tri1, tri2):
                 continue
             pair = tuple(sorted((name1, name2)))
             center = sum(points, Vector()) / 3

@@ -198,6 +198,8 @@ export const EN: Texts = {
     rule: 'Each day, completed requests are replaced. Those in progress wait for you, no rush.',
     journalRewards: (rewards: Record<Objective, number>): string =>
       `The journal earns shells too: new species ${rewards.caught}, fine fish ${rewards.nice}, trophy ${rewards.trophy}, rare variant ${rewards.variant}.`,
+    masteryRewards: (rewards: readonly number[]): string =>
+      `And the more you catch a species, the better you know it: three mastery stars per fish, worth ${rewards.join(', ')} shells.`,
     requests: {
       any: (count: number): string => `Catch ${count} fish, any kind`,
       slot: (count: number, when: string): string => `Catch ${count} fish ${when}`,
@@ -229,8 +231,8 @@ export const EN: Texts = {
       since: (date: string): string => `in the pen since ${date}`,
     },
     shop: {
-      intro: 'Everything is paid for in shells. No hurry: Moustache keeps it all aside.',
-      sections: { bait: 'Baits', gear: 'Tackle', pen: 'Fish pen', decor: 'Decoration', outfit: 'Angler’s outfit' },
+      intro: 'Everything is paid for in shells. No hurry: Moustache keeps it all aside. Items marked 🏅 cannot be bought: they are earned.',
+      sections: { bait: 'Baits', gear: 'Tackle', pen: 'Fish pen', boat: 'Boat and oars', decor: 'Decoration', outfit: 'Angler’s outfit' },
       owned: 'Owned ✓',
       equipped: 'In use',
       equip: 'Use',
@@ -239,6 +241,14 @@ export const EN: Texts = {
     },
     bought: (name: string): string => `Bought: ${name}!`,
     newBait: (name: string, key: number): string => `New bait: ${name} (key ${key})`,
+  },
+
+  fitting: {
+    try: 'Try it 👀',
+    title: (name: string): string => `Trying: ${name}`,
+    buy: (price: number): string => `Buy ${price} 🐚`,
+    back: 'Back',
+    equipped: 'Already in use',
   },
 
   penView: {
@@ -288,6 +298,55 @@ export const EN: Texts = {
 
   finds: {
     picked: '🎁 You fish something out… Show it to Moustache! (🐈)',
+  },
+
+  logbook: {
+    reward: (count: number): string => `📅 Logbook · fishing day ${count}`,
+    bonusReward: (count: number): string => `📅 Logbook · fishing day ${count}, well done!`,
+    title: (count: number): string => `📅 Logbook · ${count} fishing day${count === 1 ? '' : 's'}`,
+    days: (count: number): string => `📅 ${count} fishing day${count === 1 ? '' : 's'}`,
+    todo: (shells: number): string => `Catch a fish today for your daily stamp (+${shells} 🐚).`,
+    done: 'Today’s stamp earned ✓',
+    next: (days: number, bonus: number): string =>
+      `${days} more fishing day${days === 1 ? '' : 's'} for the ${bonus} 🐚 bonus. No rush: skipping a day loses nothing.`,
+    bonusToday: 'Row complete: bonus earned! A new row starts tomorrow.',
+  },
+
+  feats: {
+    icon: '🏅',
+    legend: (of: string): string => `Catch the legendary fish of ${of}`,
+    finds: (of: string): string => `Bring Moustache every find from ${of}`,
+    stars: (count: number): string => `Earn ${count} mastery stars`,
+    journal: 'Catch every species in the journal',
+    stamps: (count: number): string => `Fish on ${count} different days (logbook)`,
+    progress: (done: number, total: number): string => `${done} / ${total}`,
+    earned: (name: string): string => `🏅 Feat accomplished! You earn: ${name}. It is waiting for you at Moustache’s shop (🐈).`,
+  },
+
+  mastery: {
+    progress: (stars: string, count: number, next: number): string => `${stars} ${count} / ${next} catches`,
+    done: (stars: string): string => `${stars} Species mastered`,
+    reward: (stars: string): string => `Mastery ${stars}`,
+    total: (stars: number, total: number): string => `★ ${stars} / ${total} stars`,
+    title: 'Mastery: one more star as the catches add up, with shells for every star',
+  },
+
+  tip: {
+    now: (where: string): string => `🐈 Psst! A fish you don’t know yet is lurking ${where}, right now.`,
+    later: (where: string, when: string): string => `🐈 Psst! A fish you don’t know yet lurks ${where}, ${when}.`,
+    bait: (bait: string): string => `It likes: ${bait}.`,
+  },
+
+  trail: {
+    found: (count: number, total: number): string =>
+      `🍾 A message in a bottle was floating beside it! Clue ${count} / ${total} about a legendary fish: open your journal (📔).`,
+    progress: (count: number, total: number): string => `🍾 Trail: ${count} / ${total} clues`,
+    missing: (at: string): string =>
+      `The clues are in messages in bottles: one a day ${at}, fished out with your first find. Each clue also makes it bite more often.`,
+    complete: 'Trail complete: you know everything, and it bites far more often. Over to you!',
+    fullMoon: '🌕 Full moon',
+    bottleWaiting: (at: string): string => `🍾 A message in a bottle is also floating ${at} today: it tells of a legendary fish.`,
+    bottleFound: '🍾 Today’s message in a bottle found: the clue is in your journal. The next one will arrive tomorrow.',
   },
 
   signs: {

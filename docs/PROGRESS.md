@@ -26,9 +26,23 @@
 | + | Vie sur l'eau, trouvailles à rapporter à Moustache, tenue du pêcheur | ✅ Livré le 2026-10-01, **à tester** |
 | + | Jeu traduit en anglais, choix de la langue sur l'écran titre | ✅ Livré le 2026-10-01, **à tester** |
 | + | Son adouci : mixage refait (deux passes), fondu d'entrée | ✅ Livré le 2026-10-01, **à écouter** |
+| + | Déblocages plus rapides, maîtrise par espèce, pistes des légendaires, skins à formes et exclusifs | ✅ Livré le 2026-10-02, **à tester** |
+| + | Carnet de bord, aperçu 3D des skins et essai avant achat, nouvelles bêtes | ✅ Livré le 2026-10-02, **à tester** |
 
-## Prochaines pistes (fin de la session du 2026-10-01)
+## Prochaines pistes (fin de la session du 2026-10-02)
 
+- **Tester le nouveau rythme** : débloquer la rivière sur une partie neuve
+  et dire si c'est encore trop long (ou trop court). Réglages :
+  `CONFIG.progression.discovery`, et le nombre d'espèces demandé par lieu
+  dans `src/data/places.ts` (`unlock.species`).
+- **Carte de prise à partager** : une image (poisson, taille, lieu, tenue
+  du pêcheur) envoyée par le partage du téléphone, pour défier les copains.
+  Le studio de vignettes (`ThumbnailStudio`) peut servir de base.
+- **D'autres skins** : formes de cannes, voile ou fanion, accessoires du
+  pêcheur (pipe, lunettes). Ajouter une forme est devenu simple : voir
+  `docs/BLENDER_CONVENTIONS.md` › « Formes au choix ».
+- **Sons des nouvelles bêtes** : le martin-pêcheur et les poules d'eau
+  n'ont pas de cri à eux (un plouf, et le « coin » des canards).
 - **Écouter le nouveau mixage** sur iPhone et dire s'il faut encore baisser
   (ou remonter) : `CONFIG.audio.outputGain`.
 - **Vérifier la qualité Haute sur iPhone** : le mode Auto y démarre
@@ -37,13 +51,215 @@
 - **Vrais sons et musique** : remplacer les sons générés (choisir une
   source : banques gratuites ou génération par IA). Trois sons de plus
   attendent un fichier : trouvaille, canards, grenouilles.
-- **Formes de chapeaux et accessoires** pour le pêcheur (casquette,
-  chapeau de paille, pipe…) : aujourd'hui, seules les couleurs changent.
-- **Trouvailles** : une récompense quand la collection d'un lieu est
-  complète (décoration exclusive ?), et des messages dans les bouteilles
-  qui donnent de vrais indices sur les poissons pas encore attrapés.
+- **Saisons** d'après la date réelle (palette d'automne, neige, espèces de
+  saison), ou un **quatrième lieu**.
 - **Plus de bêtes** : poules d'eau, martin-pêcheur, tortue sur un rocher,
   crabes sur la plage de la crique.
+
+---
+
+## Carnet de bord, aperçu des skins, nouvelles bêtes
+
+### Carnet de bord
+
+- **Un tampon par jour (réel)**, à la première prise de la journée : +1 🐚,
+  et +5 🐚 de bonus tous les 5 tampons. Les tampons s'additionnent sans
+  jamais se perdre : sauter un jour ne coûte rien.
+- Affiché au ponton (onglet Demandes) : la rangée de cinq tampons en cours,
+  et ce qu'il reste à faire. La carte de prise annonce le tampon du jour ; le
+  carnet de pêche compte les jours de pêche.
+- **7 jours de pêche** donnent un skin exclusif : le chapeau « soleil
+  levant ».
+- Réglages : `CONFIG.progression.logbook`.
+
+### Aperçu 3D des skins
+
+- **Vignettes** : dans la boutique, les coques, les rames et les chapeaux
+  sont montrés par une image du vrai modèle (avec la peinture du moment), à
+  la place des émojis.
+- **Essayer** : chaque couleur ou forme pas encore utilisée a un bouton
+  « Essayer 👀 ». Le ponton s'efface, l'objet apparaît sur la barque ou le
+  pêcheur, et la caméra tourne lentement autour (de près pour la tenue).
+  Un bandeau propose d'acheter, d'utiliser, ou rappelle comment l'objet se
+  gagne ; « Revenir » (ou Échap) ramène à la boutique, au même endroit.
+- Les skins exclusifs s'essaient aussi : on voit ce qu'on va gagner.
+- Avec « Moins d'animations », la caméra reste de trois quarts, sans
+  tourner.
+- Réglages : `CONFIG.fitting`.
+
+### Nouvelles bêtes
+
+Aucune n'est posée dans Blender : le jeu les place d'après le relief.
+
+| Bête | Où | Ce qu'elle fait |
+| --- | --- | --- |
+| Poules d'eau | Lac, rivière : près d'une roselière | Un couple sombre à bec rouge, qui hoche la tête en nageant et ne s'éloigne pas de ses roseaux |
+| Tortues | Lac (2), rivière (1) : sur un rocher bas | Se chauffent au soleil, glissent à l'eau quand la barque approche, remontent plus tard |
+| Martin-pêcheur | Lac, rivière, de jour | Toutes les 35 à 85 s, un éclair bleu rase l'eau devant la barque, s'arrête en vol, plonge et repart |
+| Crabes | Crique : sur la plage | Deux ou trois colonies qui trottinent de côté et s'enfouissent quand la barque approche |
+
+- Coût mesuré au lac, en qualité Haute : 4 appels de dessin de plus en
+  permanence (78 au lieu de 71 quand le martin-pêcheur passe), et un
+  millier de triangles sur 140 000.
+- Réglages : `CONFIG.waterLife` (`moorhens`, `turtles`, `kingfisher`,
+  `crabs`).
+
+### Vérifié
+
+- Carnet de bord : premier tampon, bonus au 5ᵉ, exploit au 7ᵉ, affichage au
+  ponton.
+- Boutique : 12 vignettes, essai de la casquette de capitaine (objet à
+  gagner), du canoë (achat depuis l'essai : coquillages débités, coque
+  utilisée), de la barque plate (Échap : la coque d'avant revient), retour
+  au même défilement.
+- Bêtes, en faisant avancer le jeu pas à pas : cycle complet de la tortue
+  (soleil, glissade, plouf, remontée), passage complet du martin-pêcheur,
+  poules d'eau restées à moins de 7 m de leurs roseaux en 3 minutes, crabes
+  qui s'enfouissent et ressortent. Vues de près au lac et à la crique.
+- Rivière : le martin-pêcheur ne passait jamais (pas 40 m d'eau en ligne
+  droite) ; son vol s'adapte maintenant à la largeur de l'eau (9 passages
+  en 10 minutes simulées).
+- `npm run build` sans erreur.
+
+### Pas vérifié
+
+- Rien n'a été essayé sur un vrai téléphone (boutons « Essayer » au doigt,
+  fluidité).
+- Les crabes ont été vus sur une seule des plages trouvées : leur
+  placement change à chaque lancement, et un coin moins heureux (rocher
+  étroit) reste possible.
+
+### Comment tester
+
+- Boutique : ponton › Boutique › « Essayer 👀 ».
+- **Console (dev)** : `game.waterLife` donne accès aux bêtes
+  (`turtles`, `moorhens`, `kingfisher`, `crabs`) ; mettre
+  `game.waterLife.kingfisher.wait = 0` fait passer le martin-pêcheur tout
+  de suite.
+
+---
+
+## Envie de revenir : déblocages, maîtrise, pistes et skins
+
+### Déblocage des lieux : le dernier poisson n'est plus introuvable
+
+Mesuré avant de corriger, avec les vrais modules du jeu (joueur simulé,
+temps de jeu hors menus ; compter environ une fois et demie plus en vrai) :
+
+| Pour avoir 8 espèces du lac (la rivière) | Avant | Maintenant |
+| --- | --- | --- |
+| Joueur qui suit les indices du carnet | 25 min (1 sur 10 : 47 min) | 16 min (1 sur 10 : 22 min) |
+| Joueur qui pêche au hasard, mais écoute Moustache | 1 h 30 (1 sur 10 : 3 h 15) | 21 min (1 sur 10 : 28 min) |
+| Joueur qui pêche au hasard et n'écoute rien | 1 h 30 (1 sur 10 : 3 h 15) | 42 min (1 sur 10 : 1 h 15) |
+
+Le problème venait de là : en eau libre et de jour, seules trois espèces du
+lac mordent. Sans lire les indices du carnet, on pouvait y passer des
+heures. Deux aides, réglées dans `CONFIG.progression.discovery` :
+
+- **Coup de pouce aux inconnus** : à chaque prise sans nouvelle espèce,
+  celles qui manquent au carnet (hors légendaires) mordent un peu plus
+  (+40 % par prise, jusqu'à × 6). Il retombe à la première nouveauté.
+- **Conseils de Moustache** : toutes les 5 prises sans nouveauté, il dit
+  où, quand et avec quel appât chercher une espèce manquante (de
+  préférence une qui mord à l'heure qu'il est). Le message attend que la
+  carte de prise soit refermée.
+
+La crique (4 espèces de la rivière), pour un joueur qui pêche au hasard et
+écoute Moustache : 7 min au lieu de 12.
+
+### Maîtrise par espèce
+
+- Trois étoiles par espèce, gagnées au nombre de prises : 5, 20 et 50 pour
+  un poisson commun ; 4, 12, 30 (peu commun) ; 3, 8, 20 (rare) ; 1, 3, 6
+  (légendaire). Chaque étoile rapporte 2, 4 puis 8 coquillages.
+- Affichée dans le carnet (« ★★☆ 21 / 50 prises », total en haut) et sur la
+  carte de prise à chaque poisson.
+- Comme les objectifs, tout se déduit du carnet : les prises déjà faites
+  comptent, et une ancienne partie reçoit ses coquillages d'un coup.
+- Réglages : `CONFIG.progression.mastery`.
+
+### Légendaires à pister
+
+- Chaque légendaire a une **piste de trois indices** (où, quand, avec
+  quoi), écrits par un vieux pêcheur. Son carnet ne dit plus rien tant
+  qu'on n'a pas d'indice.
+- Les indices sont dans des **bouteilles à message** : une par jour (réel)
+  et par lieu, repêchée avec la première trouvaille du jour. Le ponton
+  (onglet Trouvailles) dit s'il en reste une.
+- Chaque indice fait aussi mordre le légendaire plus souvent : × 1,6, × 2,4
+  puis × 3,5 (`CONFIG.events.trail`), cumulé avec la pleine lune. Au lac,
+  piste complète, pleine lune et ver de terre : environ une touche sur
+  quatre en eau profonde (une sur cinquante sans piste ni pleine lune).
+- Les légendaires restent prenables sans piste, par chance.
+
+### Skins : des formes, et des exclusifs à gagner
+
+- **Coques** : barque de pêche, canoë (30 🐚), barque plate (30 🐚).
+- **Rames** : rames de bois, pagaies feuille (12 🐚).
+- **Chapeaux** : bob, casquette (12 🐚), chapeau de paille (15 🐚), bonnet à
+  pompon (15 🐚). La couleur de chapeau choisie s'applique à tous.
+- **Exclusifs** (marqués 🏅, ils ne s'achètent pas) :
+
+  | Exploit | Récompense |
+  | --- | --- |
+  | Légendaire du lac | Petit drakkar (tête de dragon, boucliers) |
+  | Légendaire de la rivière | Rames queue de poisson |
+  | Légendaire de la crique | Casquette de capitaine |
+  | Toutes les trouvailles du lac | Bouchon doré |
+  | Toutes les trouvailles de la rivière | Lanterne pépite |
+  | Toutes les trouvailles de la crique | Barque nacrée |
+  | 30 étoiles de maîtrise | Écharpe étoilée |
+  | Toutes les espèces | Ciré du grand pêcheur |
+
+- Un exploit déjà accompli sur une ancienne partie donne sa récompense au
+  premier lancement.
+- La boutique a une section « Barque et rames » ; la progression de chaque
+  exploit y est affichée.
+
+### Corrigé au passage
+
+- Avec le réglage « Moins d'animations », les messages au centre de l'écran
+  disparaissaient aussitôt affichés. Ils restent maintenant le temps d'être
+  lus, sans glisser.
+
+### Vérifié
+
+- Simulations ci-dessus, avec les vraies classes (`Journal`, `Progression`,
+  `selectFish`).
+- En jeu (navigateur) : conseil de Moustache, étoiles sur la carte de prise
+  et au carnet, bouteille à message et carnet du silure, changement de
+  coque, de rames et de chapeau, boutique, gain du drakkar à la prise du
+  silure, sauvegarde relue.
+- Carte de prise sur téléphone en paysage (812 × 375) : elle tient à
+  l'écran avec cinq récompenses.
+- Modèles : la coque d'origine est restée identique au sommet près ;
+  `check_assets.py` ne signale rien sur la barque et le pêcheur.
+- `npm run build` sans erreur.
+
+### Pas vérifié
+
+- Rien n'a été essayé sur un vrai téléphone.
+- Les quatre coques n'ont pas été testées une à une contre les berges et
+  les rochers : elles gardent le même cercle de collision (1,2 m), alors
+  que le canoë est plus long (33 cm de plus à l'avant, 50 cm à l'arrière).
+
+### Comment tester
+
+- Partie neuve : pêcher cinq fois le même poisson fait parler Moustache.
+- **Console (dev)** :
+  - `game.progress.progression.trails` (pistes), `.discovery` (coup de
+    pouce en cours), `.claimFeats()` ;
+  - `game.newRequestsDay()` remet aussi les trouvailles du jour (mais pas
+    la bouteille à message, qui suit la date réelle) ;
+  - `game.progress.progression.trails.open('lake', 'test', false)` donne
+    l'indice suivant du lac.
+
+### Assets
+
+- `boat.glb` passe de 56 à 276 ko (quatre coques), `fisher.glb` de 79 à
+  124 ko (cinq chapeaux).
+- Nouveau script `blender/regenerate_props.py` ; les scripts Blender
+  tournent maintenant aussi en arrière-plan, sans ouvrir Blender.
 
 ---
 

@@ -29,9 +29,19 @@ export interface FishBoosts {
   /** Nuit de pleine lune : poids des légendaires et chance de variante. */
   readonly legendaryFactor: number;
   readonly variantFactor: number;
+  /** Espèces pas encore au carnet, hors légendaires : poids × discoveryFactor (il monte après des prises sans nouveauté). */
+  readonly discoveryFactor: number;
+  readonly isUnknown: (speciesId: string) => boolean;
 }
 
-export const NO_BOOSTS: FishBoosts = { favoriteId: null, favoriteFactor: 1, legendaryFactor: 1, variantFactor: 1 };
+export const NO_BOOSTS: FishBoosts = {
+  favoriteId: null,
+  favoriteFactor: 1,
+  legendaryFactor: 1,
+  variantFactor: 1,
+  discoveryFactor: 1,
+  isUnknown: () => false,
+};
 
 /** Ce qui décide du poisson : le lieu, là où il mord (zone, heure, appât) et les coups de pouce du moment. */
 export interface SelectionContext extends BiteContext {
@@ -60,7 +70,7 @@ export function selectFish(context: SelectionContext, random: Random = Math.rand
   };
 }
 
-/** Poids de tirage d'une espèce : rareté × préférence pour l'appât × temps qu'il fait × coups de pouce. */
+/** Poids de tirage d'une espèce : rareté × préférence pour l'appât × temps qu'il fait × coin à signes × coups de pouce. */
 export function weightOf(species: FishSpecies, context: SelectionContext): number {
   const { rarityWeight, likedBaitBonus, otherBaitFactor } = CONFIG.fishSelection;
   const boosts = context.boosts ?? NO_BOOSTS;
@@ -69,7 +79,8 @@ export function weightOf(species: FishSpecies, context: SelectionContext): numbe
   const legendary = species.rarity === 'legendary' ? boosts.legendaryFactor : 1;
   const weather = context.weather && context.weather === species.weather ? CONFIG.weather.likedFactor : 1;
   const hotspot = context.hotspot && species.rarity !== 'common' ? CONFIG.signs.rarityBoost : 1;
-  return rarityWeight[species.rarity] * baitFactor * favorite * legendary * weather * hotspot;
+  const discovery = species.rarity !== 'legendary' && boosts.isUnknown(species.id) ? boosts.discoveryFactor : 1;
+  return rarityWeight[species.rarity] * baitFactor * favorite * legendary * weather * hotspot * discovery;
 }
 
 /**

@@ -153,7 +153,15 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   - vie sur l'eau (nénuphars, grenouilles, canards ou mouettes, héron,
     ombres de poissons), trouvailles à repêcher et à montrer à Moustache
     (collection de 18 objets), tenue du pêcheur à la boutique ;
-  - jeu en français et en anglais, langue choisie sur l'écran titre.
+  - jeu en français et en anglais, langue choisie sur l'écran titre ;
+  - de quoi revenir : déblocage des lieux accéléré (coup de pouce aux
+    espèces inconnues, conseils de Moustache), maîtrise par espèce
+    (étoiles), pistes des légendaires (bouteilles à message), skins à
+    formes (coques, rames, chapeaux) et skins exclusifs gagnés par des
+    exploits ;
+  - carnet de bord (un tampon par jour de pêche), aperçu 3D des skins dans
+    la boutique avec essai avant achat, et nouvelles bêtes (poules d'eau,
+    tortues, martin-pêcheur, crabes).
 
   Voir `docs/PROGRESS.md` (dont « Prochaines pistes »). Mesure sur iPhone :
   60 i/s en qualité Auto (Moyenne) avec les grands niveaux ; depuis, Auto
@@ -176,6 +184,8 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
 - `npm run preview` : sert le build de production
 - `npm run typecheck` : vérification des types seule (page et service
   worker)
+- `/Applications/Blender.app/Contents/MacOS/Blender -b blender/petite_peche.blend --python blender/regenerate_props.py` :
+  régénère et exporte la barque et le pêcheur, sans ouvrir Blender
 - `python3 scripts/make_icons.py` : régénère les icônes (macOS, `sips`)
 - En dev, `window.game` donne accès à l'instance du jeu depuis la console.
 
@@ -533,8 +543,13 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
   `LilyPads` (feuilles, fleurs et grenouilles, autour des zones `reeds`,
   eau douce seulement), `Ducks` (palette `MALLARDS` ou `GULLS` au bord de la
   mer), `Heron` (absent s'il n'y a pas deux coins d'eau de 6 à 38 cm dans
-  les zones `shallow` / `reeds`) et `FishShadows`. Rien n'est posé dans
-  Blender. `WaterMap` (`waterMap.ts`) répond aux questions sur l'eau :
+  les zones `shallow` / `reeds`) et `FishShadows` ; en eau douce, des
+  poules d'eau (`Ducks` avec la palette `MOORHENS` et les réglages
+  `CONFIG.waterLife.moorhens`), `Turtles` (sur les rochers bas des zones
+  `rocks`) et `Kingfisher` ; au bord de la mer, `Crabs`. Rien n'est posé
+  dans Blender : ce qui se pose à terre se place avec
+  `WaterMap.landHeightAt` (hauteur du sol au-dessus de l'eau, sous les
+  branches) et `isFlatLand`. `WaterMap` (`waterMap.ts`) répond aux questions sur l'eau :
   `depthAt`, `isOpen` (eau libre, hors collisions), `isClearPath`,
   `randomPoint`, `surfaceAt` (vagues amorties près du bord, comme dans le
   shader : passer la profondeur pour ce qui flotte en eau peu profonde).
@@ -552,10 +567,61 @@ Travaille par phases. Arrête-toi à la fin de chaque phase pour que je teste.
 - Tenue du pêcheur : emplacements `hat`, `coat`, `scarf` de `DecorSlot`
   (`src/data/shop.ts`, catégorie de boutique `outfit`). `Decor` repeint
   `fisher.glb` par `ColorSwap` ; les pièces sombres assorties (bande du
-  bob, rabat du ciré) sont dans `TRIMS` (`decor.ts`).
+  chapeau, rabat du ciré) sont dans `TRIMS` (`decor.ts`). `hat` est la
+  couleur du chapeau, `hatShape` sa forme.
 - Sons : `pickup`, `quack`, `croak` s'ajoutent aux effets (`SoundId`).
 - Tests en console : `game.waterLife`, `game.flotsam`,
   `game.progress.progression.finds`.
+- Découverte des espèces (`CONFIG.progression.discovery`) : `Progression`
+  compte les prises d'affilée sans nouvelle espèce dans le lieu
+  (`dryCatches`, sauvegardé, remis à zéro en changeant de lieu). Elles
+  donnent `FishBoosts.discoveryFactor` (poids des espèces pas encore au
+  carnet, hors légendaires) et, toutes les `tipEvery` prises, l'événement
+  `tip` (conseil de Moustache, affiché par `ProgressionHud` une fois la
+  carte de prise refermée : `pendingNotes`, `Hud.toast(texte, true)` pour un
+  message long). Avant de toucher aux poids de rareté ou aux seuils de
+  déblocage, re-simuler avec les vraies classes (`Journal`, `Progression`,
+  `selectFish`) dans le navigateur : voir `docs/PROGRESS.md` › « Envie de
+  revenir ».
+- Maîtrise : `src/progression/mastery.ts`. Étoiles et coquillages déduits
+  de `JournalEntry.count` (rien n'est stocké) ; `CatchReward` de sorte
+  `mastery`.
+- Pistes des légendaires : messages dans `src/data/trails.ts`, logique dans
+  `Trails` (`src/progression/trails.ts`, possédée par `Progression`,
+  sauvegardée dans `progression.trails`). `Progression.pickFind()` renvoie
+  un `Pickup` (objet + indice éventuel). Le facteur de la piste passe au
+  tirage par `Progression.boosts` → `currentBoosts` (× pleine lune).
+- Skins à formes : objets `skin_<emplacement>_<forme>` des modèles
+  (`skin_hull_*`, `skin_oars_*`, `skin_hat_*`), montrés un par emplacement
+  par `Skins` (`src/scene/skins.ts`, appelée par `Decor.apply`). Boutique :
+  effet `skin` (`SkinSlot` : `hull`, `oars`, `hatShape`) ; `LookSlot`
+  regroupe couleurs et formes, `Shop.equipped` les garde toutes. Ajouter
+  une forme : `docs/BLENDER_CONVENTIONS.md` › « Formes au choix ». `boat`
+  est un Empty ; chaque coque a son `water_mask` (`applyWaterMask` les
+  traite tous).
+- Objets exclusifs : `ShopItem.feat` (`Feat` dans `src/data/shop.ts`),
+  progression dans `src/progression/feats.ts` (déduite du carnet et des
+  trouvailles). `Progression.claimFeats()` les donne (`Shop.grant`,
+  événement `feat`) après une prise, après les trouvailles montrées à
+  Moustache, et au lancement. Statut de boutique `feat` tant que l'objet
+  n'est pas gagné.
+- Blender sans l'ouvrir : les scripts tournent en arrière-plan (`-b`).
+  Toujours procéder ainsi si Blender est ouvert sur un autre fichier (le MCP
+  Blender agit sur le fichier ouvert, quel qu'il soit). `export_assets.py`
+  marche sans fenêtre et accepte `main(only=…)`.
+- Carnet de bord : `Logbook` (`src/progression/logbook.ts`, possédé par
+  `Progression`, sauvegardé dans `progression.logbook`) : un tampon à la
+  première prise de chaque jour réel, `CatchReward` de sorte `stamp`,
+  exploit `stamps`. Affiché au ponton (onglet Demandes).
+- Aperçu des skins : `ThumbnailStudio` (`src/ui/thumbnailStudio.ts`) rend
+  un objet seul hors écran ; `FishThumbnails` et `LookThumbnails` (vignettes
+  des formes dans la boutique, refaites après chaque achat) s'en servent.
+- Essai avant achat : état de jeu `fitting` (ponton ⇄ essai), comme `pen`.
+  `Game.tryOn()` applique l'apparence provisoire (`Shop.trying(item)` →
+  `Look` → `Decor.apply`), `orbitFitting()` fait tourner la caméra
+  (`CameraView.aboveGround` la garde au-dessus du décor), `FittingHud`
+  propose l'achat. `CabinView.suspend()` / `resume()` gardent l'onglet et le
+  défilement.
 - Qualité graphique : `src/core/quality.ts`. Le réglage `quality`
   ('auto' | 'low' | 'medium' | 'high') remplace les anciens `shadows` et
   `resolution` (repris par `parseQuality` : « économe » ou ombres coupées →

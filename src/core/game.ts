@@ -5,6 +5,7 @@ import { baitById } from '../data/baits';
 import { WEATHERS } from '../data/weather';
 import { FISH, fishOf, type Habitat } from '../data/fish';
 import { DEFAULT_PLACE, placeById, type PlaceId } from '../data/places';
+import { lookSlot, type LookSlot, type ShopItem } from '../data/shop';
 import { loadBobberModel } from '../fishing/bobber';
 import { FishingController } from '../fishing/fishingController';
 import { checkFishData } from '../fishing/fishSelector';
@@ -15,7 +16,7 @@ import { Rod, findRodMount, loadRodModel, type RodModel } from '../fishing/rod';
 import { Boat, type BoatControls } from '../scene/boat';
 import { createBoatBounds } from '../scene/boatBounds';
 import { loadBoatModel } from '../scene/boatModel';
-import { CameraRig, createCamera } from '../scene/cameraRig';
+import { CameraRig, createCamera, type CameraView } from '../scene/cameraRig';
 import { currentBoosts } from '../progression/rendezvous';
 import type { Pwa } from '../pwa/pwa';
 import { Cat, loadCatModel } from '../scene/cat';
@@ -46,10 +47,13 @@ import { WaterLife } from '../scene/waterLife';
 import { createWaterSurface } from '../scene/waterSurface';
 import { CabinView, type CabinTab } from '../ui/cabinView';
 import { CatBubble } from '../ui/catBubble';
+import { featText } from '../ui/featText';
 import { FishThumbnails } from '../ui/fishThumbnails';
+import { FittingHud, type FittingAction } from '../ui/fittingHud';
 import { FishingHud } from '../ui/fishingHud';
 import type { Hud } from '../ui/hud';
 import { JournalView } from '../ui/journalView';
+import { LookThumbnails } from '../ui/lookThumbnails';
 import { Menus } from '../ui/menus';
 import { PenViewHud } from '../ui/penViewHud';
 import { ProgressionHud } from '../ui/progressionHud';
@@ -83,7 +87,7 @@ interface LoadedAssets {
 }
 
 /** États du jeu : le monde n'avance que dans `playing`. */
-type GameState = 'title' | 'playing' | 'paused' | 'journal' | 'cabin' | 'pen';
+type GameState = 'title' | 'playing' | 'paused' | 'journal' | 'cabin' | 'pen' | 'fitting';
 /** Panneaux qui mettent le jeu en pause : le carnet et le ponton de Moustache. */
 type OverlayState = 'journal' | 'cabin';
 
@@ -92,10 +96,22 @@ const GAME_TRANSITIONS: TransitionTable<GameState> = {
   playing: ['paused', 'journal', 'cabin'],
   paused: ['playing', 'journal', 'cabin'],
   journal: ['playing', 'paused'],
-  cabin: ['playing', 'paused', 'pen'],
+  cabin: ['playing', 'paused', 'pen', 'fitting'],
   /** Vue rapprochée du vivier, ouverte depuis le ponton (et qui y ramène). */
   pen: ['cabin'],
+  /** Essai d'un objet de la boutique : la caméra tourne autour de la barque, puis retour au ponton. */
+  fitting: ['cabin'],
 };
+
+/** Emplacements portés par le pêcheur : leur essai se regarde de près. */
+const WORN_SLOTS: readonly LookSlot[] = ['hat', 'hatShape', 'coat', 'scarf'];
+
+/** Essai en cours : l'objet, le cadrage, et le tour déjà fait par la caméra (rad). */
+interface Fitting {
+  readonly item: ShopItem;
+  readonly close: boolean;
+  angle: number;
+}
 
 const _bubble = new Vector3();
 
@@ -164,6 +180,9 @@ export class Game {
   private readonly catBubble: CatBubble;
   private readonly fishPen: FishPen | null;
   private readonly penViewHud: PenViewHud;
+  private readonly fittingHud: FittingHud;
+  private fitting: Fitting | null = null;
+  private readonly fittingView: CameraView = { position: new Vector3(), target: new Vector3(), aboveGround: true };
   private readonly tutorial: Tutorial;
   private readonly menus: Menus;
   private readonly levelHelpers: Object3D;
@@ -260,6 +279,8 @@ export class Game {
       stats: this.progress.stats,
       thumbnails,
       shells: () => this.progress.progression.shells,
+      trails: this.progress.progression.trails,
+      fishingDays: () => this.progress.progression.logbook.count,
       place: this.place,
     });
     this.fishPen = this.createFishPen();
@@ -267,9 +288,11 @@ export class Game {
       progression: this.progress.progression,
       journal: this.progress.journal,
       thumbnails,
+      lookThumbnails: new LookThumbnails(this.renderer, assets.boatModel, assets.fisherModel),
       hasPen: this.fishPen !== null,
       onBuy: (item) => this.progressionHud.buy(item),
       onEquip: (item) => this.progressionHud.equip(item),
+      onTry: (item) => this.tryOn(item),
       onRelease: (fish) => this.progressionHud.release(fish),
       onViewPen: () => this.viewPen(),
       place: this.place,
@@ -278,6 +301,7 @@ export class Game {
     });
     this.catBubble = new CatBubble(hud.layer, () => this.openOverlay('cabin'));
     this.penViewHud = new PenViewHud(hud.layer, () => this.leavePenView());
+    this.fittingHud = new FittingHud(hud.layer, () => this.confirmFitting(), () => this.leaveFitting());
     this.tutorial = new Tutorial(hud.layer, this.fishing.events, () => this.progress.setTutorialDone(true));
     this.menus = this.createMenus();
     this.pwa.events.on('change', () => this.menus.refresh());
@@ -354,7 +378,7 @@ export class Game {
       fishingHud: this.fishingHud,
       place: this.place,
       gear: () => this.progress.progression.gear,
-      boosts: () => currentBoosts(this.progress.progression.dailyFish, this.isFullMoonNight),
+      boosts: () => currentBoosts(this.progress.progression.dailyFish, this.isFullMoonNight, this.progress.progression.boosts),
       weather: () => this.weather.id,
       hotspots: this.fishSigns,
       splash: (x, z, strength) => this.effects.splash(x, z, strength),
@@ -612,6 +636,72 @@ export class Game {
     this.cabinView.open('pen');
   }
 
+  /** Depuis la boutique : le ponton s'efface, et on voit l'objet sur la barque ou le pêcheur. */
+  private tryOn(item: ShopItem): void {
+    const slot = lookSlot(item);
+    if (slot === null || this.fsm.state !== 'cabin') return;
+    this.cabinView.suspend();
+    this.fsm.go('fitting');
+    this.fitting = { item, close: WORN_SLOTS.includes(slot), angle: 0 };
+    this.progressionHud.preview(item);
+    this.hud.setViewMode(true);
+    this.fittingHud.show(item, this.fittingAction(item));
+  }
+
+  /** Ce que propose le bandeau de l'essai : acheter, utiliser, ou rappeler comment l'objet se gagne. */
+  private fittingAction(item: ShopItem): FittingAction {
+    const { progression } = this.progress;
+    switch (progression.shop.status(item, progression.shells)) {
+      case 'buyable':
+        return { kind: 'buy', price: item.price, affordable: true };
+      case 'tooExpensive':
+        return { kind: 'buy', price: item.price, affordable: false };
+      case 'equipable':
+        return { kind: 'equip' };
+      case 'feat':
+        return { kind: 'none', note: item.feat ? `${TEXTS.feats.icon} ${featText(item.feat)}` : '' };
+      default:
+        return { kind: 'none', note: TEXTS.fitting.equipped };
+    }
+  }
+
+  /** Bouton du bandeau : achète ou utilise l'objet essayé, puis retour à la boutique. */
+  private confirmFitting(): void {
+    if (!this.fitting) return;
+    const { item } = this.fitting;
+    const action = this.fittingAction(item);
+    if (action.kind === 'buy') this.progressionHud.buy(item);
+    if (action.kind === 'equip') this.progressionHud.equip(item);
+    this.leaveFitting();
+  }
+
+  private leaveFitting(): void {
+    if (this.fsm.state !== 'fitting') return;
+    this.fitting = null;
+    this.progressionHud.preview(null);
+    this.rig.setView(null);
+    this.hud.setViewMode(false);
+    this.fittingHud.hide();
+    this.fsm.go('cabin');
+    this.cabinView.resume();
+  }
+
+  /** Pendant un essai, la caméra tourne lentement autour de la barque (ou reste de trois quarts avec « Moins d'animations »). */
+  private orbitFitting(dt: number): void {
+    const fitting = this.fitting;
+    if (!fitting) return;
+    const { orbitSeconds, startAngle, wide, close } = CONFIG.fitting;
+    if (!this.progress.settings.reduceMotion) fitting.angle += (dt / orbitSeconds) * 2 * Math.PI;
+    const frame = fitting.close ? close : wide;
+    const angle = this.boat.yaw + startAngle + fitting.angle;
+    const { position, target } = this.fittingView;
+    if (fitting.close) this.fisher.root.getWorldPosition(target);
+    else target.copy(this.boat.position);
+    target.y = this.boat.position.y + frame.lookHeight;
+    position.set(target.x + Math.sin(angle) * frame.distance, this.boat.position.y + frame.height, target.z + Math.cos(angle) * frame.distance);
+    this.rig.setView(this.fittingView);
+  }
+
   // --- Boucle ---------------------------------------------------------------
 
   private update(dt: number, elapsed: number): void {
@@ -675,9 +765,10 @@ export class Game {
     this.nightLights.update(dt, night, this.boat.position);
     this.effects.update(dt, elapsed, night, this.weather.intensity('wind'), this.boat.position);
     this.flotsam.update(dt, elapsed, this.boat.position, this.fsm.state === 'playing');
-    this.waterLife.update(dt, elapsed, { boat: this.boat.position, night, evening: this.isEvening ? 1 : 0 });
+    this.waterLife.update(dt, elapsed, { boat: this.boat.position, boatYaw: this.boat.yaw, night, evening: this.isEvening ? 1 : 0 });
     this.fisher.update(dt, elapsed, this.fisherPose(dt));
     this.fireflies.update(elapsed, this.boat.position, this.level.water.level, night);
+    this.orbitFitting(dt);
     this.rig.update(dt, this.boat, this.fishing.focusPoint);
     this.cat?.update(elapsed);
     this.fishPen?.update(dt, elapsed);
@@ -817,6 +908,9 @@ export class Game {
         return;
       case 'pen':
         if (input.wasPressed(controls.cancel) || input.wasPointerPressed) this.leavePenView();
+        return;
+      case 'fitting':
+        if (input.wasPressed(controls.cancel)) this.leaveFitting();
         return;
       case 'paused':
         if (!input.wasPressed(controls.cancel)) return;

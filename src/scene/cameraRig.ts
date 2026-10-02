@@ -8,10 +8,12 @@ const UP = new Vector3(0, 1, 0);
 /** Hauteur du sol pour un point en l'air (voir HeightSampler.groundAt) ; null s'il n'y a rien. */
 export type GroundQuery = (x: number, z: number, y: number) => number | null;
 
-/** Point de vue fixe : où est la caméra et ce qu'elle regarde. */
+/** Point de vue imposé : où est la caméra et ce qu'elle regarde. */
 export interface CameraView {
   readonly position: Vector3;
   readonly target: Vector3;
+  /** La caméra reste au-dessus du décor (vue qui tourne autour de la barque, où qu'elle soit). */
+  readonly aboveGround?: boolean;
 }
 
 /** Ce que la caméra suit : une position au niveau de l'eau et un cap. */
@@ -39,7 +41,7 @@ export class CameraRig {
   private readonly lookTarget = new Vector3();
   private readonly goalPosition = new Vector3();
   private readonly goalTarget = new Vector3();
-  /** Vue imposée (vivier) : la caméra y va en douceur ; null = elle suit la barque. */
+  /** Vue imposée (vivier, essai d'un objet) : la caméra y va en douceur ; null = elle suit la barque. */
   private view: CameraView | null = null;
 
   /**
@@ -62,7 +64,7 @@ export class CameraRig {
     this.camera.lookAt(this.lookTarget);
   }
 
-  /** Impose un point de vue (vue rapprochée du vivier) ; null pour revenir à la barque. */
+  /** Impose un point de vue (vivier, essai d'un objet) ; null pour revenir à la barque. */
   setView(view: CameraView | null): void {
     this.view = view;
   }
@@ -72,6 +74,7 @@ export class CameraRig {
     const { followDamping, lookDamping } = CONFIG.camera;
     if (this.view) {
       this.goalPosition.copy(this.view.position);
+      if (this.view.aboveGround) this.goalPosition.y = Math.max(this.goalPosition.y, this.floorAt(this.goalPosition));
       this.goalTarget.copy(this.view.target);
     } else {
       this.computeGoals(target, focus);

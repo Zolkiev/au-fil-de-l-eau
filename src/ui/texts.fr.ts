@@ -6,6 +6,9 @@ import type { ShopCategory } from '../data/shop';
 import type { Objective } from '../progression/objectives';
 import type { ZoneType } from '../scene/levelLoader';
 
+/** « 1ᵉʳ », « 2ᵉ », « 3ᵉ »… */
+const ordinal = (rank: number): string => (rank === 1 ? '1ᵉʳ' : `${rank}ᵉ`);
+
 /**
  * Tous les textes affichés au joueur, en français. La version anglaise
  * (texts.en.ts) a exactement la même forme : toute entrée ajoutée ici doit
@@ -213,6 +216,8 @@ export const FR = {
     rule: 'Chaque jour, les demandes accomplies sont remplacées. Celles en cours t’attendent, sans se presser.',
     journalRewards: (rewards: Record<Objective, number>): string =>
       `Le carnet rapporte aussi des coquillages : nouvelle espèce ${rewards.caught}, beau poisson ${rewards.nice}, trophée ${rewards.trophy}, variante rare ${rewards.variant}.`,
+    masteryRewards: (rewards: readonly number[]): string =>
+      `Et plus tu attrapes une espèce, mieux tu la connais : trois étoiles de maîtrise par poisson, qui rapportent ${rewards.join(', ')} coquillages.`,
     requests: {
       any: (count: number): string => `Attrape ${count} poissons, n’importe lesquels`,
       slot: (count: number, when: string): string => `Attrape ${count} poissons ${when}`,
@@ -244,8 +249,15 @@ export const FR = {
       since: (date: string): string => `au vivier depuis le ${date}`,
     },
     shop: {
-      intro: 'Tout se paie en coquillages. Rien ne presse : Moustache garde tout de côté.',
-      sections: { bait: 'Appâts', gear: 'Matériel', pen: 'Vivier', decor: 'Décoration', outfit: 'Tenue du pêcheur' } satisfies Record<ShopCategory, string>,
+      intro: 'Tout se paie en coquillages. Rien ne presse : Moustache garde tout de côté. Les objets marqués 🏅 ne s’achètent pas : ils se gagnent.',
+      sections: {
+        bait: 'Appâts',
+        gear: 'Matériel',
+        pen: 'Vivier',
+        boat: 'Barque et rames',
+        decor: 'Décoration',
+        outfit: 'Tenue du pêcheur',
+      } satisfies Record<ShopCategory, string>,
       owned: 'Acquis ✓',
       equipped: 'Utilisé',
       equip: 'Utiliser',
@@ -254,6 +266,15 @@ export const FR = {
     },
     bought: (name: string): string => `Acheté : ${name} !`,
     newBait: (name: string, key: number): string => `Nouvel appât : ${name} (touche ${key})`,
+  },
+
+  /** Essai d'un objet de la boutique sur la barque ou le pêcheur. */
+  fitting: {
+    try: 'Essayer 👀',
+    title: (name: string): string => `Essai : ${name}`,
+    buy: (price: number): string => `Acheter ${price} 🐚`,
+    back: 'Revenir',
+    equipped: 'Déjà utilisé',
   },
 
   /** Vue rapprochée du vivier. */
@@ -306,6 +327,62 @@ export const FR = {
   /** Trouvailles repêchées par la barque. */
   finds: {
     picked: '🎁 Tu repêches quelque chose… Montre-le à Moustache ! (🐈)',
+  },
+
+  /** Carnet de bord : un tampon par jour où l'on pêche (`count` : nombre de jours de pêche). */
+  logbook: {
+    reward: (count: number): string => `📅 Carnet de bord · ${ordinal(count)} jour de pêche`,
+    bonusReward: (count: number): string => `📅 Carnet de bord · ${ordinal(count)} jour de pêche, bravo !`,
+    title: (count: number): string => `📅 Carnet de bord · ${count} jour${count > 1 ? 's' : ''} de pêche`,
+    days: (count: number): string => `📅 ${count} jour${count > 1 ? 's' : ''} de pêche`,
+    todo: (shells: number): string => `Attrape un poisson aujourd’hui pour ton tampon du jour (+${shells} 🐚).`,
+    done: 'Tampon du jour obtenu ✓',
+    next: (days: number, bonus: number): string =>
+      `Encore ${days} jour${days > 1 ? 's' : ''} de pêche pour le bonus de ${bonus} 🐚. Rien ne presse : un jour sauté ne fait rien perdre.`,
+    bonusToday: 'Rangée complète : bonus gagné ! Une nouvelle rangée commence demain.',
+  },
+
+  /** Exploits : ce qu'il faut accomplir pour gagner les objets exclusifs de la boutique (`of` : « du lac »). */
+  feats: {
+    icon: '🏅',
+    legend: (of: string): string => `Attrape le poisson légendaire ${of}`,
+    finds: (of: string): string => `Rapporte toutes les trouvailles ${of} à Moustache`,
+    stars: (count: number): string => `Gagne ${count} étoiles de maîtrise`,
+    journal: 'Attrape toutes les espèces du carnet',
+    stamps: (count: number): string => `Pêche ${count} jours différents (carnet de bord)`,
+    progress: (done: number, total: number): string => `${done} / ${total}`,
+    earned: (name: string): string => `🏅 Exploit accompli ! Tu gagnes : ${name}. Il t’attend à la boutique de Moustache (🐈).`,
+  },
+
+  /** Maîtrise d'une espèce : trois étoiles gagnées au nombre de prises (`stars` : « ★★☆ »). */
+  mastery: {
+    progress: (stars: string, count: number, next: number): string => `${stars} ${count} / ${next} prises`,
+    done: (stars: string): string => `${stars} Espèce maîtrisée`,
+    reward: (stars: string): string => `Maîtrise ${stars}`,
+    total: (stars: number, total: number): string => `★ ${stars} / ${total} étoiles`,
+    title: 'Maîtrise : une étoile de plus à force de prises, avec des coquillages à chaque étoile',
+  },
+
+  /** Conseil de Moustache après plusieurs prises sans nouvelle espèce (où, quand, puis l'appât). */
+  tip: {
+    now: (where: string): string => `🐈 Psst ! Un poisson que tu ne connais pas rôde ${where}, en ce moment même.`,
+    later: (where: string, when: string): string => `🐈 Psst ! Un poisson que tu ne connais pas rôde ${where}, ${when}.`,
+    bait: (bait: string): string => `Il aime : ${bait}.`,
+  },
+
+  /** Piste d'un poisson légendaire : trois indices, trouvés dans des bouteilles à message. */
+  trail: {
+    found: (count: number, total: number): string =>
+      `🍾 Une bouteille à message flottait à côté ! Indice ${count} / ${total} sur un poisson légendaire : ouvre ton carnet (📔).`,
+    progress: (count: number, total: number): string => `🍾 Piste : ${count} / ${total} indices`,
+    /** Sous les indices du carnet, tant qu'il en manque. */
+    missing: (at: string): string =>
+      `Les indices sont dans des bouteilles à message : une par jour ${at}, repêchée avec ta première trouvaille. Chaque indice le fait aussi mordre plus souvent.`,
+    complete: 'Piste complète : tu sais tout, et il mord bien plus souvent. À toi de jouer !',
+    fullMoon: '🌕 Pleine lune',
+    /** Onglet « Trouvailles » du ponton. */
+    bottleWaiting: (at: string): string => `🍾 Une bouteille à message flotte aussi ${at} aujourd’hui : elle parle d’un poisson légendaire.`,
+    bottleFound: '🍾 Bouteille à message du jour trouvée : l’indice est dans ton carnet. La prochaine arrivera demain.',
   },
 
   /** Signes de poissons (sauts, bulles). */

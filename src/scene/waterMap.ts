@@ -5,6 +5,8 @@ import type { LevelData } from './levelLoader';
 import { waveHeight } from './waves';
 
 const TAU = Math.PI * 2;
+/** Hauteur au-dessus de l'eau d'où l'on cherche le sol : au-dessus des rochers bas et des plages, sous les branches. */
+const LAND_PROBE = 0.7;
 
 /**
  * Ce que les bêtes savent de l'eau du niveau : où elle est libre (emprise de
@@ -27,6 +29,27 @@ export class WaterMap {
   depthAt(x: number, z: number): number {
     const bed = this.ground.groundAt(x, z, this.level + 0.02);
     return bed === null ? CONFIG.water.defaultDepth : this.level - bed;
+  }
+
+  /**
+   * Hauteur au-dessus de l'eau du sol ou du rocher en (x, z) : ce sur quoi
+   * une bête peut se poser (pas la cime d'un arbre). Null au-dessus de l'eau.
+   */
+  landHeightAt(x: number, z: number): number | null {
+    const top = this.ground.groundAt(x, z, this.level + LAND_PROBE);
+    return top === null || top <= this.level ? null : top - this.level;
+  }
+
+  /** Le sol est-il à peu près plat autour de (x, z) ? (moins de `tolerance` m d'écart à `reach` m à la ronde) */
+  isFlatLand(x: number, z: number, reach: number, tolerance: number): boolean {
+    const here = this.landHeightAt(x, z);
+    if (here === null) return false;
+    return [
+      [reach, 0],
+      [-reach, 0],
+      [0, reach],
+      [0, -reach],
+    ].every(([dx, dz]) => Math.abs((this.landHeightAt(x + dx, z + dz) ?? Infinity) - here) < tolerance);
   }
 
   /** Sur l'eau (au-dessus de `water`) ? Les collisions ne comptent pas : la rive en fait partie. */

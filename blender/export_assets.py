@@ -42,32 +42,39 @@ def target_path(scene_name):
 
 
 def export_scene(scene, path, draco):
-    bpy.context.window.scene = scene
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    bpy.ops.export_scene.gltf(
-        filepath=path,
-        export_format="GLB",
-        use_active_scene=True,
-        export_yup=True,
-        export_apply=True,
-        export_vertex_color="MATERIAL",
-        export_lights=False,
-        export_cameras=False,
-        export_animations=True,
-        export_draco_mesh_compression_enable=draco,
-    )
+    # Sans fenêtre (Blender lancé en arrière-plan), la scène à exporter est donnée par le contexte
+    window = bpy.context.window
+    if window:
+        window.scene = scene
+    with bpy.context.temp_override(scene=scene, view_layer=scene.view_layers[0]):
+        bpy.ops.export_scene.gltf(
+            filepath=path,
+            export_format="GLB",
+            use_active_scene=True,
+            export_yup=True,
+            export_apply=True,
+            export_vertex_color="MATERIAL",
+            export_lights=False,
+            export_cameras=False,
+            export_animations=True,
+            export_draco_mesh_compression_enable=draco,
+        )
 
 
-def main():
+def main(only=None):
+    """Exporte toutes les scènes, ou seulement celles dont le nom est dans `only`."""
     assets = os.path.join(os.path.dirname(blender_dir()), "assets")
-    current = bpy.context.window.scene
+    window = bpy.context.window
+    current = window.scene if window else None
     exported = []
     for scene in bpy.data.scenes:
         relative = target_path(scene.name)
-        if relative:
+        if relative and (only is None or scene.name in only):
             export_scene(scene, os.path.join(assets, relative), draco=scene.name in LEVELS)
             exported.append(relative)
-    bpy.context.window.scene = current
+    if window:
+        window.scene = current
     return exported
 
 

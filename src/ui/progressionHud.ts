@@ -1,8 +1,10 @@
 import { CONFIG } from '../config';
 import type { Journal } from '../core/journal';
-import { fishById, type Habitat } from '../data/fish';
+import type { TimeSlot } from '../core/gameClock';
+import { fishById, type FishSpecies, type Habitat } from '../data/fish';
 import type { PlaceId } from '../data/places';
 import type { ShopItem } from '../data/shop';
+import { CLUE_KINDS } from '../data/trails';
 import type { FindSpot } from '../scene/levelLoader';
 import type { FishRoll } from '../fishing/fishSelector';
 import type { KeptFish } from '../progression/keptFish';
@@ -11,6 +13,7 @@ import type { Decor } from '../scene/decor';
 import type { KeepState, RewardLine } from './catchPopup';
 import type { FishingHud } from './fishingHud';
 import type { Hud } from './hud';
+import { starsText } from './fishText';
 import { describeRequest } from './requestText';
 import { TEXTS } from './texts';
 
@@ -29,12 +32,14 @@ export interface ProgressionHudDeps {
  * Relie la progression à l'interface et au décor : coquillages et badge de
  * Moustache dans le panneau « matériel », barre d'appâts, décoration de la
  * barque et tenue du pêcheur, récompenses et bouton du vivier sur la carte
- * de prise, achats, poisson du jour, trouvailles repêchées, et nouvelles
- * demandes au changement de jour.
+ * de prise, achats, poisson du jour, trouvailles repêchées, conseils de
+ * Moustache, exploits, et nouvelles demandes au changement de jour.
  */
 export class ProgressionHud {
   private readonly deps: ProgressionHudDeps;
   private dayCheckTimer = 0;
+  /** Messages longs en attente (conseil de Moustache, exploit) : ils s'affichent une fois la carte de prise refermée. */
+  private readonly pendingNotes: string[] = [];
 
   constructor(deps: ProgressionHudDeps) {
     this.deps = deps;
@@ -45,9 +50,13 @@ export class ProgressionHud {
     progression.events.on('shop', () => this.applyShop());
     progression.events.on('rewards', ({ roll, rewards }) => this.showCatchExtras(roll, rewards));
     progression.events.on('unlock', ({ place }) => deps.hud.toast(TEXTS.places.unlocked(place.name)));
+    progression.events.on('tip', ({ species, slot }) => this.pendingNotes.push(this.tipText(species, slot)));
+    progression.events.on('feat', ({ item }) => this.pendingNotes.push(TEXTS.feats.earned(item.name)));
     progression.setPlace(deps.place, deps.habitats);
     progression.refreshRequests();
     progression.refreshFinds();
+    // Exploits accomplis avant l'arrivée des objets exclusifs (ancienne partie)
+    progression.claimFeats();
     fishingHud.setShells(progression.shells);
     this.updateBadge();
     this.applyShop();
@@ -61,13 +70,16 @@ export class ProgressionHud {
 
   /** La barque vient de repêcher ce qui flottait à ce coin. Retourne false s'il n'y avait rien. */
   pickFind(spot: FindSpot): boolean {
-    if (!this.deps.progression.pickFind(spot.index)) return false;
-    this.deps.hud.toast(TEXTS.finds.picked);
+    const pickup = this.deps.progression.pickFind(spot.index);
+    if (!pickup) return false;
+    if (pickup.clue) this.deps.hud.toast(TEXTS.trail.found(pickup.clue.count, CLUE_KINDS.length), true);
+    else this.deps.hud.toast(TEXTS.finds.picked);
     return true;
   }
 
   /** Vérifie de temps en temps si le jour a changé (à appeler quand le jeu tourne). */
   update(dt: number): void {
+    this.showPendingNote();
     this.dayCheckTimer += dt;
     if (this.dayCheckTimer < CONFIG.progression.requests.dayCheckSeconds) return;
     this.dayCheckTimer = 0;
@@ -104,11 +116,33 @@ export class ProgressionHud {
     this.deps.progression.equip(item);
   }
 
+  /** Essai avant achat : montre l'objet sur la barque ou le pêcheur ; null remet ce qui est vraiment utilisé. */
+  preview(item: ShopItem | null): void {
+    const { shop } = this.deps.progression;
+    this.deps.decor.apply(item ? shop.trying(item) : shop);
+  }
+
   /** Nouvelles demandes tout de suite (tests : `game.newRequestsDay()`). */
   forceNewDay(): void {
     this.deps.progression.requests.forgetDay();
     this.deps.progression.refreshRequests();
     this.deps.progression.refreshFinds(`test-${Date.now()}`);
+  }
+
+  /** Un message long à la fois, quand la carte de prise est refermée. */
+  private showPendingNote(): void {
+    if (this.pendingNotes.length === 0 || this.deps.fishingHud.catchPopup.isOpen) return;
+    this.deps.hud.toast(this.pendingNotes.shift() ?? '', true);
+  }
+
+  /** « Un poisson que tu ne connais pas rôde dans les roseaux, au crépuscule. Il aime : … » */
+  private tipText(species: FishSpecies, slot: TimeSlot): string {
+    const { progression, habitats } = this.deps;
+    const habitat = species.habitats.find((candidate) => habitats.includes(candidate)) ?? species.habitats[0];
+    const where = TEXTS.cabin.where[habitat];
+    const place = species.times.includes(slot) ? TEXTS.tip.now(where) : TEXTS.tip.later(where, TEXTS.cabin.when[species.times[0]]);
+    const bait = progression.baits.find((candidate) => species.baits.includes(candidate.id));
+    return bait ? `${place} ${TEXTS.tip.bait(`${bait.icon} ${bait.name}`)}` : place;
   }
 
   private updateBadge(): void {
@@ -142,8 +176,12 @@ export class ProgressionHud {
         const { icon, name } = TEXTS.objectives[reward.objective];
         return { label: `${icon} ${name}`, shells: reward.shells };
       }
+      case 'mastery':
+        return { label: TEXTS.mastery.reward(starsText(reward.star)), shells: reward.shells };
       case 'daily':
         return { label: TEXTS.catch.dailyReward, shells: reward.shells };
+      case 'stamp':
+        return { label: reward.bonus ? TEXTS.logbook.bonusReward(reward.count) : TEXTS.logbook.reward(reward.count), shells: reward.shells };
       case 'request': {
         const request = describeRequest(reward.request, this.deps.journal, this.deps.place);
         return { label: `${TEXTS.cabin.button} ${TEXTS.catch.requestReward}${TEXTS.colon}${request}`, shells: reward.shells };

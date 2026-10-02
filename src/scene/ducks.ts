@@ -16,6 +16,27 @@ export interface DuckPalette {
 export const MALLARDS: DuckPalette = { body: 0xb5aa9a, head: 0x2f6b4f, beak: 0xe8b030, others: 0xd9b48a };
 /** Mouettes posées, au bord de la mer. */
 export const GULLS: DuckPalette = { body: 0xf4f4f0, head: 0xf4f4f0, beak: 0xf2c230, others: 0xe6e9ec };
+/** Poules d'eau : sombres, bec rouge. */
+export const MOORHENS: DuckPalette = { body: 0x3a3f45, head: 0x23262b, beak: 0xd9402b, others: 0xc9ccd0 };
+
+/** Réglages d'une sorte d'oiseau posé sur l'eau (CONFIG.waterLife.ducks, CONFIG.waterLife.moorhens). */
+export interface DuckSettings {
+  readonly groups: number;
+  readonly perGroup: number;
+  readonly scale: number;
+  readonly speed: number;
+  readonly fleeSpeed: number;
+  readonly fleeDistance: number;
+  readonly roam: { readonly min: number; readonly max: number };
+  readonly rest: { readonly min: number; readonly max: number };
+  readonly minDepth: number;
+  readonly spacing: number;
+  readonly turn: number;
+  readonly hearing: number;
+  readonly nod: number;
+  /** Ils ne s'éloignent pas de plus de cette distance de leur point de départ (m) ; 0 : ils vont où ils veulent. */
+  readonly stay: number;
+}
 
 interface Duck {
   x: number;
@@ -27,6 +48,8 @@ interface Duck {
 /** Un petit groupe : le premier mène, les autres suivent à la file. */
 interface Flock {
   readonly ducks: Duck[];
+  /** Là où le groupe s'est installé au départ. */
+  readonly home: Vector2;
   /** Où va le groupe ; null : il se repose. */
   target: Vector2 | null;
   /** Temps de repos restant avant la prochaine promenade (s). */
@@ -48,24 +71,32 @@ export interface DuckHooks {
 const _dummy = new Object3D();
 const _color = new Color();
 
+/** Où les groupes s'installent au départ : autour d'un point, entre deux distances (m). */
+export interface DuckHome {
+  readonly around: Vector3;
+  readonly min: number;
+  readonly max: number;
+}
+
 /**
- * Canards (ou mouettes posées) : de petits groupes qui se promènent en eau
- * libre, se reposent, et s'écartent de la barque en cancanant. La nuit, ils
- * dorment sur place. Un seul lot instancié pour tous.
+ * Canards (ou mouettes posées, ou poules d'eau) : de petits groupes qui se
+ * promènent en eau libre, se reposent, et s'écartent de la barque en
+ * cancanant. La nuit, ils dorment sur place. Un seul lot instancié pour tous.
  */
 export class Ducks {
   readonly mesh: InstancedMesh;
   private readonly water: WaterMap;
   private readonly hooks: DuckHooks;
+  private readonly settings: DuckSettings;
   private readonly flocks: Flock[] = [];
 
-  /** `around` : point autour duquel les groupes s'installent au départ (le départ de la barque). */
-  constructor(water: WaterMap, around: Vector3, palette: DuckPalette, hooks: DuckHooks) {
-    const { groups, perGroup, minDepth } = CONFIG.waterLife.ducks;
+  constructor(water: WaterMap, home: DuckHome, palette: DuckPalette, hooks: DuckHooks, settings: DuckSettings = CONFIG.waterLife.ducks) {
+    const { groups, perGroup, minDepth } = settings;
     this.water = water;
     this.hooks = hooks;
+    this.settings = settings;
     for (let i = 0; i < groups; i++) {
-      const start = water.randomPoint(around.x, around.z, 14, 55, minDepth + 0.3, 40);
+      const start = water.randomPoint(home.around.x, home.around.z, home.min, home.max, minDepth + 0.3, 40);
       if (start) this.flocks.push(createFlock(start, perGroup));
     }
     const count = this.flocks.length * perGroup;
@@ -92,13 +123,13 @@ export class Ducks {
 
   /** Le premier du groupe : il fuit la barque, nage vers sa destination, ou se repose. */
   private lead(flock: Flock, dt: number, boat: Vector3, night: number): void {
-    const { speed, fleeSpeed, fleeDistance, turn, rest, minDepth } = CONFIG.waterLife.ducks;
+    const { speed, fleeSpeed, fleeDistance, turn, rest, minDepth } = this.settings;
     const leader = flock.ducks[0];
     flock.fleeing = Math.max(0, flock.fleeing - dt);
     if (flock.fleeing <= 0 && Math.hypot(leader.x - boat.x, leader.z - boat.z) < fleeDistance) this.flee(flock, boat);
     if (!flock.target) {
       flock.rest -= dt;
-      if (flock.rest <= 0 && night < 0.6) flock.target = this.stroll(leader);
+      if (flock.rest <= 0 && night < 0.6) flock.target = this.stroll(flock);
       return;
     }
     const dx = flock.target.x - leader.x;
@@ -119,15 +150,25 @@ export class Ducks {
     flock.rest = rest;
   }
 
-  /** Prochaine promenade : un point d'eau libre joignable en ligne droite (null s'il n'y en a pas). */
-  private stroll(leader: Duck): Vector2 | null {
-    const { roam, minDepth } = CONFIG.waterLife.ducks;
+  /**
+   * Prochaine promenade : un point d'eau libre joignable en ligne droite (null
+   * s'il n'y en a pas). Les oiseaux casaniers (`stay`) visent d'abord un
+   * point près de chez eux ; s'ils en sont coupés, ils se promènent comme
+   * les autres.
+   */
+  private stroll(flock: Flock): Vector2 | null {
+    const { roam, minDepth, stay } = this.settings;
+    const leader = flock.ducks[0];
+    if (stay > 0) {
+      const near = this.water.randomPoint(flock.home.x, flock.home.y, 0, stay, minDepth, 6);
+      if (near && this.water.isClearPath(leader.x, leader.z, near.x, near.y, minDepth * 0.6)) return near;
+    }
     return this.water.randomPoint(leader.x, leader.z, roam.min, roam.max, minDepth, 8, true);
   }
 
   /** La barque est trop près : le groupe file vers un point à l'opposé, en cancanant. */
   private flee(flock: Flock, boat: Vector3): void {
-    const { minDepth, hearing, fleeDistance } = CONFIG.waterLife.ducks;
+    const { minDepth, hearing, fleeDistance } = this.settings;
     const leader = flock.ducks[0];
     const away = Math.atan2(leader.x - boat.x, leader.z - boat.z);
     for (let attempt = 0; attempt < 8; attempt++) {
@@ -147,7 +188,7 @@ export class Ducks {
 
   /** Les suivants : chacun rejoint sa place derrière le premier, en file un peu décalée. */
   private follow(flock: Flock, dt: number): void {
-    const { spacing } = CONFIG.waterLife.ducks;
+    const { spacing } = this.settings;
     const leader = flock.ducks[0];
     const rate = 1 - Math.exp(-(flock.fleeing > 0 ? 3 : 1.6) * dt);
     for (let k = 1; k < flock.ducks.length; k++) {
@@ -173,12 +214,13 @@ export class Ducks {
     for (const duck of flock.ducks) this.hooks.onRipple(duck.x, duck.z);
   }
 
-  /** Posé sur la vague, avec un léger tangage. */
+  /** Posé sur la vague, avec un léger tangage (ou un hochement de tête marqué, pour les poules d'eau). */
   private place(duck: Duck, index: number, elapsed: number): void {
+    const { nod, scale } = this.settings;
     const t = elapsed * 1.7 + duck.phase;
     _dummy.position.set(duck.x, this.water.surfaceAt(duck.x, duck.z, elapsed), duck.z);
-    _dummy.rotation.set(Math.sin(t) * 0.05, duck.yaw, Math.sin(t * 0.8) * 0.04, 'YXZ');
-    _dummy.scale.setScalar(CONFIG.waterLife.ducks.scale);
+    _dummy.rotation.set(Math.sin(t * (nod > 0.1 ? 3 : 1)) * nod, duck.yaw, Math.sin(t * 0.8) * 0.04, 'YXZ');
+    _dummy.scale.setScalar(scale);
     _dummy.updateMatrix();
     this.mesh.setMatrixAt(index, _dummy.matrix);
   }
@@ -191,7 +233,7 @@ function createFlock(start: Vector2, count: number): Flock {
     const duck = { x: start.x - Math.sin(yaw) * 0.85 * k, z: start.y - Math.cos(yaw) * 0.85 * k, yaw, phase: Math.random() * 6 };
     ducks.push(duck);
   }
-  return { ducks, target: null, rest: MathUtils.lerp(1, 6, Math.random()), fleeing: 0, ripple: 0 };
+  return { ducks, home: start.clone(), target: null, rest: MathUtils.lerp(1, 6, Math.random()), fleeing: 0, ripple: 0 };
 }
 
 /** Canard low poly : corps rebondi, croupion relevé, tête ronde et bec ; il regarde vers +Z, posé sur l'eau (y = 0). */

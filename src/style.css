@@ -163,6 +163,13 @@ select {
   animation: toast 2.4s ease forwards;
 }
 
+/* Conseil de Moustache : une phrase entière, qui reste le temps d'être lue */
+.hud-toast.is-long {
+  max-width: min(100%, 520px);
+  border-radius: 18px;
+  animation: toast-long 8s ease forwards;
+}
+
 /* Jauge de puissance du lancer, avec la zone visée au-dessus */
 .power {
   position: absolute;
@@ -627,6 +634,85 @@ select {
 .journal-record {
   font-size: calc(13px * var(--text-scale, 1));
   font-weight: 600;
+}
+
+/* Ponton : carnet de bord (une rangée de tampons, le dernier porte le bonus) */
+.cabin-daily.logbook {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logbook-title {
+  font-weight: 700;
+}
+
+.logbook-row {
+  display: flex;
+  gap: 6px;
+}
+
+.logbook-stamp {
+  display: grid;
+  place-items: center;
+  width: calc(34px * var(--text-scale, 1));
+  height: calc(34px * var(--text-scale, 1));
+  border: 2px dashed rgba(61, 74, 82, 0.25);
+  border-radius: 50%;
+  font-size: calc(16px * var(--text-scale, 1));
+  opacity: 0.6;
+}
+
+.logbook-stamp.is-done {
+  border: 2px solid #c9861c;
+  background: #fff1c7;
+  opacity: 1;
+}
+
+.logbook-note {
+  font-size: calc(13px * var(--text-scale, 1));
+  opacity: 0.8;
+}
+
+/* Boutique : exploit à accomplir pour gagner un objet exclusif */
+.shop-feat {
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 700;
+  color: #a36a14;
+}
+
+/* Maîtrise d'une espèce : étoiles et prises jusqu'à la prochaine */
+.journal-mastery,
+.catch-mastery {
+  font-size: calc(13px * var(--text-scale, 1));
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #a36a14;
+}
+
+/* Piste d'un légendaire : indices trouvés (ce qu'ils apprennent, puis le message de la bouteille) */
+.journal-trail {
+  font-size: calc(13px * var(--text-scale, 1));
+  font-weight: 700;
+}
+
+.journal-clue {
+  align-self: stretch;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: #fff1c7;
+  font-size: calc(12px * var(--text-scale, 1));
+  line-height: 1.35;
+}
+
+.journal-clue-fact {
+  font-weight: 700;
+  color: #a36a14;
+}
+
+.journal-clue-message {
+  font-style: italic;
+  opacity: 0.8;
 }
 
 .journal-where,
@@ -1190,6 +1276,46 @@ select {
   cursor: default;
 }
 
+/* Bouton secondaire (« Essayer », « Revenir ») */
+.shop-action.is-quiet {
+  background: rgba(61, 74, 82, 0.08);
+  color: inherit;
+  font-weight: 600;
+}
+
+/* Boutique : action principale au-dessus, « Essayer » dessous */
+.shop-actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+/* Boutique : vignette du vrai modèle (coque, rames, chapeau) */
+.shop-thumb {
+  flex: none;
+  width: 76px;
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+}
+
+/* Essai d'un objet : le bandeau peut passer sur deux lignes (écran étroit) */
+.pen-view.fitting {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 18px;
+}
+
+/* Essai d'un objet : note à la place du bouton (objet à gagner) */
+.fitting-note {
+  font-size: calc(12px * var(--text-scale, 1));
+  font-weight: 600;
+  color: #a36a14;
+}
+
 .shop-status {
   flex: none;
   max-width: 110px;
@@ -1465,6 +1591,24 @@ select {
   transition-duration: 0.01ms !important;
 }
 
+/* … sauf les messages : ils ne glissent plus, mais restent le temps d'être lus */
+.reduce-motion .hud-toast {
+  animation: toast-still 2.4s step-end forwards !important;
+}
+
+.reduce-motion .hud-toast.is-long {
+  animation-duration: 8s !important;
+}
+
+@keyframes toast-still {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* --- Écran tactile (classe is-touch posée par src/core/pointerMode.ts) --- */
 
 /* Joystick pour ramer, en bas à gauche */
@@ -1663,6 +1807,22 @@ html:not(.is-touch) .touch-stick,
 @keyframes breathe {
   50% {
     opacity: 0.35;
+  }
+}
+
+@keyframes toast-long {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  5%,
+  92% {
+    opacity: 1;
+    transform: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px);
   }
 }
 

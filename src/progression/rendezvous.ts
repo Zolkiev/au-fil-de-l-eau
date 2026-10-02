@@ -10,6 +10,7 @@ import type { FishBoosts } from '../fishing/fishSelector';
  *   prise du jour rapporte un bonus ;
  * - la nuit de pleine lune (cycle en jours de jeu, voir GameClock) : les
  *   légendaires et les variantes sortent plus souvent.
+ * La piste d'un légendaire (src/progression/trails.ts) s'y ajoute.
  */
 
 /** Poisson du jour d'un lieu : une espèce non légendaire qui vit dans ce niveau ; null s'il n'y en a pas. */
@@ -21,14 +22,24 @@ export function dailyFish(day: string, place: PlaceId, habitats: readonly Habita
   return eligible[hashText(`${day}:${place}`) % eligible.length];
 }
 
+/** Coup de pouce aux espèces pas encore au carnet (voir Progression.discovery). */
+export type Discovery = Pick<FishBoosts, 'discoveryFactor' | 'isUnknown'>;
+
+/** Ce que la progression apporte au tirage : espèces inconnues, et piste du légendaire du lieu (× son poids). */
+export interface ProgressBoosts {
+  readonly discovery: Discovery;
+  readonly trailFactor: number;
+}
+
 /** Coups de pouce en cours pour le tirage du poisson. */
-export function currentBoosts(favorite: FishSpecies | null, fullMoonNight: boolean): FishBoosts {
+export function currentBoosts(favorite: FishSpecies | null, fullMoonNight: boolean, progress: ProgressBoosts): FishBoosts {
   const { dailyFish: daily, fullMoon } = CONFIG.events;
   return {
     favoriteId: favorite?.id ?? null,
     favoriteFactor: daily.weightFactor,
-    legendaryFactor: fullMoonNight ? fullMoon.legendaryFactor : 1,
+    legendaryFactor: (fullMoonNight ? fullMoon.legendaryFactor : 1) * progress.trailFactor,
     variantFactor: fullMoonNight ? fullMoon.variantFactor : 1,
+    ...progress.discovery,
   };
 }
 

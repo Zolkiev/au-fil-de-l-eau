@@ -3,6 +3,7 @@ import { keyHints } from '../core/controls';
 import { isTouchMode } from '../core/pointerMode';
 import type { FishRoll } from '../fishing/fishSelector';
 import { sizeTier } from '../progression/objectives';
+import { masteryText } from './fishText';
 import { createElement } from './hud';
 import { formatSize, TEXTS } from './texts';
 
@@ -17,8 +18,8 @@ export interface RewardLine {
 
 /**
  * Carte de présentation de la prise (le poisson 3D tourne au-dessus) :
- * rareté, nom, taille, nouveautés, palier de taille, description, puis les
- * coquillages gagnés. Un voile doux assombrit les bords de l'écran.
+ * rareté, nom, taille, nouveautés, palier de taille, maîtrise de l'espèce,
+ * description, puis les coquillages gagnés. Un voile doux assombrit les bords de l'écran.
  */
 export class CatchPopup {
   private readonly vignette = createElement('catch-vignette');
@@ -40,6 +41,10 @@ export class CatchPopup {
     layer.append(this.vignette, this.card);
   }
 
+  get isOpen(): boolean {
+    return !this.card.hidden;
+  }
+
   show(roll: FishRoll, result: CatchResult): void {
     const { species } = roll;
     this.card.className = `catch-card rarity-${species.rarity}${roll.variant ? ' is-variant' : ''}`;
@@ -52,6 +57,7 @@ export class CatchPopup {
       createElement('catch-name', roll.variant ? species.variant.name : species.name),
       createElement('catch-size', formatSize(roll.sizeCm)),
       this.badges(roll, result),
+      this.mastery(roll, result),
       createElement('catch-description', species.description),
       this.rewards,
       this.keepButton,
@@ -97,6 +103,13 @@ export class CatchPopup {
     this.keepButton.textContent = state === 'available' ? available : state === 'kept' ? TEXTS.catch.kept : TEXTS.catch.penFull;
     this.keepButton.disabled = state !== 'available';
     this.keepButton.classList.toggle('is-kept', state === 'kept');
+  }
+
+  /** Où en est la maîtrise de l'espèce après cette prise (« ★☆☆ 7 / 20 prises »). */
+  private mastery(roll: FishRoll, result: CatchResult): HTMLDivElement {
+    const line = createElement('catch-mastery', masteryText(roll.species, result.entry.count));
+    line.title = TEXTS.mastery.title;
+    return line;
   }
 
   private badges(roll: FishRoll, result: CatchResult): HTMLDivElement {

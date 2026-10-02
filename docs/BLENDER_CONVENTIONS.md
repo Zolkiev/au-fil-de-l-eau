@@ -32,7 +32,7 @@ Tous les assets du jeu ont été créés dans Blender et sont livrés avec leurs
 sources :
 
 - **`blender/petite_peche.blend`** contient une scène par asset : `lake_01`,
-  `river_01`, `cove_01`, `boat`, `rod`, `bobber`, `cat` et `fish_<id>` (les
+  `river_01`, `cove_01`, `boat`, `rod`, `bobber`, `cat`, `fisher` et `fish_<id>` (les
   22 poissons). C'est le fichier
   à ouvrir pour retoucher un asset à la main.
 - **`blender/export_assets.py`** exporte toutes ces scènes en `.glb` dans
@@ -41,7 +41,7 @@ sources :
   `export_assets.py` › *Exécuter*. Correspondance :
   - `lake_01`, `river_01`, `cove_01` → `levels/<nom>.glb` (compressés en
     Draco) ;
-  - `boat`, `rod`, `bobber`, `cat` → `props/<nom>.glb` ;
+  - `boat`, `rod`, `bobber`, `cat`, `fisher` → `props/<nom>.glb` ;
   - `fish_<id>` → `fish/<id>.glb`.
 - **`blender/generate_assets.py`** (et le dossier `petite_peche/`) recrée
   toutes les scènes par programme, puis enregistre le `.blend`.
@@ -55,6 +55,16 @@ sources :
   modification de `level.py`, `river.py`, `cove.py` ou `flora.py` ; puis
   `export_assets.py` et `check_assets.py`. ⚠ Des retouches faites à la main
   dans ces trois scènes seraient perdues.
+- **`blender/regenerate_props.py`** ne recrée que la barque et le pêcheur
+  (`boat`, `fisher`), enregistre le fichier, puis exporte ces deux scènes. À
+  lancer après une modification de la barque, des rames, du pêcheur ou de
+  leurs formes au choix (`skin_*`) dans `props.py`. ⚠ Des retouches faites à
+  la main dans ces deux scènes seraient perdues.
+- **Sans ouvrir Blender** : ces scripts tournent aussi en arrière-plan,
+  depuis un terminal, sans toucher à ce qui est ouvert dans Blender :
+  `/Applications/Blender.app/Contents/MacOS/Blender -b blender/petite_peche.blend --python blender/regenerate_props.py`.
+  `export_assets.py` accepte une liste de scènes (`main(only=("boat",))`)
+  pour n'exporter que celles-là.
 - **Taille des niveaux** : le lac fait environ 120 m de large (terrain de
   300 m de côté), la rivière se parcourt sur 250 m (terrain de 360 × 220 m),
   la crique s'ouvre sur 130 m et sa zone de pêche s'étend sur 260 m le long
@@ -85,6 +95,9 @@ sources :
     terrain sous lui). Posé sur un autre élément, il peut déborder.
   
   Il affiche le nom des objets et un point de repère pour chaque problème.
+  Deux formes au choix d'une même pièce (`skin_hull_classic` et
+  `skin_hull_canoe`, par exemple) ne sont pas comparées entre elles : le jeu
+  n'en montre qu'une.
 
 Les objets sont colorés par face (attribut de couleur « Col », lu par un
 matériau « Palette ») : pour recolorer, passe en mode *Vertex Paint* ou
@@ -184,8 +197,9 @@ Les zones peuvent se chevaucher : c'est alors **la plus petite** qui compte
 
 ## Vie sur l'eau : rien à poser
 
-Nénuphars, grenouilles, canards, héron et ombres de poissons ne demandent
-aucun objet : le jeu les place d'après ce que le niveau contient déjà
+Nénuphars, grenouilles, canards, poules d'eau, héron, tortues,
+martin-pêcheur, crabes et ombres de poissons ne demandent aucun objet : le
+jeu les place d'après ce que le niveau contient déjà
 (`src/scene/waterLife.ts`).
 
 - **Nénuphars et grenouilles** : autour de chaque zone `zone_reeds_<n>`, là
@@ -198,6 +212,19 @@ aucun objet : le jeu les place d'après ce que le niveau contient déjà
 - **Canards** (mouettes au bord de la mer) et **ombres de poissons** : en
   eau libre d'au moins 1 m de profondeur. Ils ont donc besoin d'un **fond
   modélisé** (voir « Eau »).
+- **Poules d'eau** (eau douce) : un couple autour de la première zone
+  `zone_reeds_<n>`, là où l'eau libre fait au moins 45 cm de profondeur.
+- **Tortues** (eau douce) : une par zone `zone_rocks_<n>` (trois au plus),
+  sur un rocher qui dépasse de l'eau de **8 à 55 cm**, pas trop pentu
+  (25° environ), avec au moins 35 cm d'eau à son pied. Des rochers tous
+  hauts ou tous pointus : pas de tortue. Pour en avoir une à coup sûr, pose
+  un rocher bas et plutôt plat dans la zone.
+- **Martin-pêcheur** (eau douce) : il lui faut de l'eau libre devant la
+  barque, et au moins 8 m d'eau de part et d'autre de l'endroit où il
+  plonge.
+- **Crabes** (bord de mer) : sur un sol bas (4 à 32 cm au-dessus de l'eau)
+  et à peu près plat, à moins de 3 m de l'eau et de 11 m d'un endroit où
+  passe la barque : une **plage en pente douce** ou des rochers plats.
 
 ## Collisions : `*_col`
 
@@ -235,10 +262,50 @@ aucun objet : le jeu les place d'après ce que le niveau contient déjà
 - Pour que l'écume se voie bien, donne aux berges, îles et rochers une
   **pente douce** sous l'eau plutôt que des flancs verticaux.
 
+## Formes au choix : `skin_<emplacement>_<forme>`
+
+Certaines pièces existent en plusieurs formes, que le joueur achète ou gagne
+à la boutique de Moustache. Dans le modèle, ce sont des objets nommés
+**`skin_<emplacement>_<forme>`**, tous au même endroit : le jeu n'en montre
+qu'un par emplacement (`src/scene/skins.ts`) et cache les autres.
+
+| Emplacement | Objets (modèle) | Formes actuelles |
+| --- | --- | --- |
+| Coque | `skin_hull_*` (enfants de `boat`, dans `boat.glb`) | `classic`, `canoe`, `punt`, `drakkar` |
+| Rames | `skin_oars_*` (enfants de `oar_l` **et** de `oar_r`) | `classic`, `leaf`, `fishtail` |
+| Chapeau | `skin_hat_*` (enfants de `fisher_head`, dans `fisher.glb`) | `bob`, `cap`, `straw`, `beanie`, `captain` |
+
+Pour **ajouter une forme** :
+
+1. modélise-la au même endroit que les autres (dans `props.py` : une entrée
+   de plus dans `HULLS`, `OAR_BLADES` ou `HATS`), nommée
+   `skin_<emplacement>_<forme>` ;
+2. ajoute l'objet correspondant dans `src/data/shop.ts` (`skin(...)`, avec
+   la même `<forme>`) : prix, ou `feat` s'il se gagne par un exploit ;
+3. relance `regenerate_props.py`, puis `check_assets.py`.
+
+Règles :
+
+- la forme d'origine est l'objet à **prix 0** de la boutique ; un modèle
+  sans aucun `skin_*` (ancien fichier, placeholder) s'affiche tel quel ;
+- garde les **couleurs d'origine** (peinture `#6aa9a8`, chapeau `#6f7d4a`…)
+  sur les parties qui doivent suivre la couleur choisie par le joueur : elles
+  sont repeintes dans toutes les formes à la fois. Une forme à couleurs
+  fixes (casquette de capitaine) utilise simplement d'autres couleurs ;
+- toutes les coques gardent la **même largeur au milieu** et la même hauteur
+  de plat-bord : les rames, la canne (`rod_mount`), le siège du pêcheur
+  (`fisher_seat`) et la lanterne sont communs et ne bougent pas. Rien ne doit
+  dépasser la tête du pêcheur devant lui (la vue vers le bouchon doit rester
+  dégagée) ;
+- chaque coque a **son propre `water_mask`**, enfant de la coque.
+
 ## Barque : `assets/props/boat.glb`
 
 - Origine au centre de la barque, **au niveau de la ligne de flottaison**.
 - L'avant pointe vers -Y, longueur d'environ 3 à 4 m.
+- **`boat`** est un Empty : il porte les coques au choix (`skin_hull_*`,
+  chacune avec ses bancs, son plancher et son petit matériel) et ce qui est
+  commun à toutes (rames, lanterne, `rod_mount`, `fisher_seat`).
 - L'ombre portée est activée automatiquement sur tous ses meshes.
 - **`rod_mount`** (Empty) : point où la poignée de la canne est fixée,
   typiquement sur le bord droit. La canne hérite de son orientation : laisse-le
@@ -249,13 +316,14 @@ aucun objet : le jeu les place d'après ce que le niveau contient déjà
   est invisible en jeu : il empêche seulement le plan d'eau de se dessiner
   dans la barque (sinon, si le fond est sous la ligne de flottaison, la
   barque paraît remplie d'eau). La coque doit être fermée jusqu'aux
-  plats-bords tout autour du masque.
+  plats-bords tout autour du masque. Un masque par coque, enfant de la
+  coque (celui d'une coque cachée ne compte pas).
 - **`lantern`** (Empty ou petit objet, facultatif) : emplacement de la
   lanterne qui s'allume la nuit (lumière chaude). Si c'est un objet avec un
   matériau émissif (couleur d'émission non noire), il brille aussi la nuit.
   Sans `lantern`, la lumière est placée au-dessus du centre de la barque.
-- **`oar_l`, `oar_r`** (objets, facultatifs) : les rames, que le jeu fait
-  battre. Origine **au tolet** (le pivot, au-dessus des dames de nage) ; en
+- **`oar_l`, `oar_r`** (Empties, facultatifs) : les rames, que le jeu fait
+  battre ; ils portent les rames au choix (`skin_oars_*`). Origine **au tolet** (le pivot, au-dessus des dames de nage) ; en
   repère local, la rame s'étend vers **+X** (poignée vers -X, pelle vers +X).
   La rame droite est la même, tournée d'un demi-tour (rotation Z = 180°). Un
   Empty enfant **`oar_l_grip`** / **`oar_r_grip`** marque l'endroit où le
@@ -328,7 +396,9 @@ aucun objet : le jeu les place d'après ce que le niveau contient déjà
     longueurs des bras sont lues d'après ces positions.
 - La gauche est **+X** (il regarde -Y). Absent : un pêcheur en primitives le
   remplace.
-- **Tenue (boutique de Moustache)** : le jeu repeint les sommets du bob
+- **Chapeaux** : `fisher_head` n'a pas de chapeau ; ils sont à part
+  (`skin_hat_*`, enfants de la tête, voir « Formes au choix »).
+- **Tenue (boutique de Moustache)** : le jeu repeint les sommets du chapeau
   (`#6f7d4a`, et sa bande `#55603a`), du ciré (`#e0a83a`, rabat et
   manchettes `#c38d2b`) et de l'écharpe (`#b8483c`). Même règle que pour la
   barque : ces couleurs doivent correspondre aux objets à prix 0

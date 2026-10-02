@@ -3,10 +3,13 @@ import type { Journal, JournalEntry } from '../core/journal';
 import type { Stats } from '../core/stats';
 import { BAITS } from '../data/baits';
 import { FISH, fishById, fishOf, type FishSpecies } from '../data/fish';
-import { PLACES, type PlaceId } from '../data/places';
+import { PLACES, placeById, type PlaceId } from '../data/places';
+import { CLUE_KINDS, trailOf, type ClueKind, type Trail } from '../data/trails';
 import { WEATHERS } from '../data/weather';
+import { countStars, TOTAL_STARS } from '../progression/mastery';
 import { achievedObjectives, countAchieved, OBJECTIVES, tierThresholdCm, TOTAL_OBJECTIVES } from '../progression/objectives';
-import { habitatText, hintText, timeText } from './fishText';
+import type { Trails } from '../progression/trails';
+import { habitatText, hintText, masteryText, timeText } from './fishText';
 import type { FishThumbnails } from './fishThumbnails';
 import { createElement } from './hud';
 import { formatDate, formatDuration, formatSize, TEXTS } from './texts';
@@ -18,14 +21,19 @@ export interface JournalViewDeps {
   readonly thumbnails: FishThumbnails;
   /** Coquillages disponibles. */
   readonly shells: () => number;
+  /** Pistes des légendaires (indices trouvés). */
+  readonly trails: Trails;
+  /** Jours de pêche (tampons du carnet de bord). */
+  readonly fishingDays: () => number;
   /** Lieu où l'on pêche : le carnet s'ouvre sur ses poissons. */
   readonly place: PlaceId;
 }
 
 /**
  * Carnet de pêche : grille des espèces (silhouette et indices pour celles
- * pas encore attrapées), objectifs (attrapé, beau, trophée, variante),
- * record et nombre de prises par espèce, et résumé de la partie. Le jeu est
+ * pas encore attrapées, piste à remonter pour les légendaires), objectifs (attrapé, beau, trophée, variante),
+ * record, nombre de prises et étoiles de maîtrise par espèce, et résumé de
+ * la partie. Le jeu est
  * en pause tant qu'il est ouvert.
  */
 export class JournalView {
@@ -94,8 +102,10 @@ export class JournalView {
     summary.append(
       chip(TEXTS.journal.species(journal.speciesCount, FISH.length)),
       chip(TEXTS.journal.objectives(countAchieved(journal), TOTAL_OBJECTIVES)),
+      chip(TEXTS.mastery.total(countStars(journal), TOTAL_STARS)),
       chip(`${TEXTS.shells.icon} ${TEXTS.shells.count(this.deps.shells())}`),
       chip(TEXTS.journal.totalCatches(journal.totalCatches)),
+      chip(TEXTS.logbook.days(this.deps.fishingDays())),
       chip(`${TEXTS.journal.playTime}${TEXTS.colon}${formatDuration(stats.data.playTimeSeconds)}`),
     );
     const biggest = stats.data.biggest;
@@ -126,9 +136,23 @@ export class JournalView {
     card.append(this.thumbnail(species, !entry), createElement('catch-rarity', TEXTS.rarity[species.rarity]));
     card.append(createElement('journal-name', entry ? species.name : TEXTS.journal.unknownName));
     card.append(objectivesRow(species, entry));
+    const trail = trailOf(species.id);
     if (entry) card.append(...caughtDetails(species, entry));
+    else if (trail) card.append(...this.trailDetails(species, trail));
     else card.append(createElement('journal-where', hintText(species)));
     return card;
+  }
+
+  /** Légendaire pas encore attrapé : les indices déjà trouvés, et comment trouver les autres. */
+  private trailDetails(species: FishSpecies, trail: Trail): HTMLElement[] {
+    const clues = this.deps.trails.clues(species.id);
+    const complete = clues.length >= CLUE_KINDS.length;
+    const rule = complete ? TEXTS.trail.complete : TEXTS.trail.missing(placeById(species.place).at);
+    return [
+      createElement('journal-trail', TEXTS.trail.progress(clues.length, CLUE_KINDS.length)),
+      ...clues.map((kind) => clueLine(species, trail, kind)),
+      createElement('journal-where', rule),
+    ];
   }
 
   private thumbnail(species: FishSpecies, silhouette: boolean): HTMLImageElement {
@@ -158,16 +182,44 @@ function objectivesRow(species: FishSpecies, entry: JournalEntry | undefined): H
   return row;
 }
 
+/** Un indice de la piste : ce qu'il apprend, puis le message de la bouteille. */
+function clueLine(species: FishSpecies, trail: Trail, kind: ClueKind): HTMLElement {
+  const line = createElement('journal-clue');
+  line.append(createElement('journal-clue-fact', clueFact(species, kind)), createElement('journal-clue-message', TEXTS.quote(trail.messages[kind])));
+  return line;
+}
+
+/** Ce qu'un indice révèle : où vit le poisson, quand il sort, ou ce qui l'attire. */
+function clueFact(species: FishSpecies, kind: ClueKind): string {
+  switch (kind) {
+    case 'where':
+      return `📍 ${habitatText(species)}`;
+    case 'when':
+      return `${timeText(species)} · ${TEXTS.trail.fullMoon}`;
+    case 'bait':
+      return `${favoriteBaits(species)} · ${WEATHERS[species.weather].icon} ${WEATHERS[species.weather].name}`;
+  }
+}
+
+/** Appâts préférés d'une espèce (« 🪱 Ver de terre, 🌽 Grain de maïs »). */
+function favoriteBaits(species: FishSpecies): string {
+  return BAITS.filter((bait) => species.baits.includes(bait.id))
+    .map((bait) => `${bait.icon} ${bait.name}`)
+    .join(', ');
+}
+
 /** Détails d'une espèce déjà attrapée. */
 function caughtDetails(species: FishSpecies, entry: JournalEntry): HTMLElement[] {
-  const baits = BAITS.filter((bait) => species.baits.includes(bait.id)).map((bait) => `${bait.icon} ${bait.name}`);
   const variant = entry.variant ? [createElement('journal-variant', TEXTS.journal.variantName(species.variant.name))] : [];
+  const mastery = createElement('journal-mastery', masteryText(species, entry.count));
+  mastery.title = TEXTS.mastery.title;
   return [
     ...variant,
     createElement('journal-record', `${TEXTS.journal.record}${TEXTS.colon}${formatSize(entry.bestSizeCm)} · ${TEXTS.journal.caughtTimes(entry.count)}`),
+    mastery,
     createElement('journal-where', `${habitatText(species)} · ${timeText(species)}`),
     createElement('journal-description', species.description),
-    createElement('journal-meta', `${TEXTS.journal.favoriteBaits}${TEXTS.colon}${baits.join(', ')}`),
+    createElement('journal-meta', `${TEXTS.journal.favoriteBaits}${TEXTS.colon}${favoriteBaits(species)}`),
     createElement('journal-meta', `${TEXTS.journal.favoriteWeather}${TEXTS.colon}${WEATHERS[species.weather].icon} ${WEATHERS[species.weather].name}`),
     createElement('journal-meta', `${TEXTS.journal.firstCatch} ${formatDate(entry.firstCaughtAt)}`),
   ];

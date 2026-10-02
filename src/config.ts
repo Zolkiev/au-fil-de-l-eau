@@ -277,6 +277,32 @@ export const CONFIG = {
     variantChance: 0.03,
     /** Coquillages gagnés par objectif du carnet (4 objectifs par espèce). */
     objectiveRewards: { caught: 3, nice: 2, trophy: 4, variant: 6 },
+    /**
+     * Coup de pouce aux espèces pas encore au carnet (hors légendaires),
+     * pour qu'aucun lieu ne reste bloqué sur un dernier poisson introuvable :
+     * - à chaque prise sans nouvelle espèce, elles mordent un peu plus
+     *   (poids × (1 + perCatch × prises d'affilée), plafonné à maxFactor) ;
+     * - toutes les `tipEvery` prises sans nouveauté, Moustache souffle où,
+     *   quand et avec quoi en chercher une.
+     * Réglé par simulation : 8 espèces du lac en ~20 min pour un joueur qui
+     * suit les conseils, ~45 min pour celui qui les ignore (1 h 30 avant).
+     */
+    discovery: { perCatch: 0.4, maxFactor: 6, tipEvery: 5 },
+    /**
+     * Maîtrise d'une espèce (src/progression/mastery.ts) : nombre de prises à
+     * atteindre pour la 1ʳᵉ, la 2ᵉ et la 3ᵉ étoile, selon la rareté, et
+     * coquillages offerts pour chacune.
+     */
+    mastery: {
+      catches: { common: [5, 20, 50], uncommon: [4, 12, 30], rare: [3, 8, 20], legendary: [1, 3, 6] },
+      rewards: [2, 4, 8],
+    },
+    /**
+     * Carnet de bord (src/progression/logbook.ts) : un tampon par jour (réel)
+     * où l'on attrape un poisson. Coquillages par tampon, et bonus ajouté
+     * tous les `bonusEvery` tampons. Rien ne se perd si on saute un jour.
+     */
+    logbook: { perStamp: 1, bonusEvery: 5, bonus: 5 },
     requests: {
       /** Demandes affichées en même temps ; celles accomplies sont remplacées chaque jour (réel). */
       slots: 3,
@@ -387,6 +413,99 @@ export const CONFIG = {
       turn: 1.6,
       /** Distance jusqu'où on entend leur « coin » quand ils s'enfuient. */
       hearing: 35,
+      /** Hochement de tête en nageant (rad). */
+      nod: 0.05,
+      /** 0 : ils vont où ils veulent. */
+      stay: 0,
+    },
+    /**
+     * Poules d'eau (eau douce) : un couple sombre à bec rouge qui ne quitte
+     * pas les abords d'une roselière. Mêmes réglages que les canards ; `nod` :
+     * hochement de tête en nageant (rad).
+     */
+    moorhens: {
+      groups: 1,
+      perGroup: 2,
+      scale: 1.15,
+      speed: 0.4,
+      fleeSpeed: 1.5,
+      fleeDistance: 6,
+      roam: { min: 3, max: 11 },
+      rest: { min: 2, max: 7 },
+      minDepth: 0.45,
+      spacing: 0.7,
+      turn: 1.9,
+      hearing: 30,
+      nod: 0.16,
+      /** Elles restent à moins de cette distance de leur roselière (m). */
+      stay: 10,
+    },
+    /**
+     * Tortues (eau douce) : elles se chauffent sur un rocher bas des zones
+     * `rocks`, glissent à l'eau quand la barque approche, et remontent plus
+     * tard, quand elle s'est éloignée.
+     */
+    turtles: {
+      /** Nombre maximal (une par zone de rochers). */
+      count: 3,
+      scale: 1.6,
+      /** Hauteur du rocher au-dessus de l'eau (m). */
+      height: { min: 0.08, max: 0.55 },
+      fleeDistance: 6.5,
+      returnDistance: 12,
+      /** Temps passé sous l'eau avant de remonter (s). */
+      away: { min: 20, max: 40 },
+      /** Durée de la glissade vers l'eau, et de la remontée (s). */
+      leaveSeconds: 0.8,
+      returnSeconds: 2.6,
+      /** Distance jusqu'où on entend le plouf. */
+      hearing: 25,
+    },
+    /**
+     * Crabes (bord de mer) : de petites colonies sur le sable et les rochers
+     * bas, qui trottinent de côté et s'enfouissent quand la barque approche.
+     */
+    crabs: {
+      colonies: 3,
+      perColony: 3,
+      scale: 1.7,
+      color: 0xd9603a,
+      /** Hauteur du sol au-dessus de l'eau où ils vivent (m). */
+      height: { min: 0.04, max: 0.32 },
+      /** Longueur de leur va-et-vient (m), vitesse (m/s), pause entre deux courses (s). */
+      span: { min: 0.5, max: 1.3 },
+      speed: 0.55,
+      rest: { min: 0.8, max: 4 },
+      fleeDistance: 6,
+      /** Délai avant de ressortir une fois la barque partie (s). */
+      hide: { min: 3, max: 7 },
+    },
+    /**
+     * Martin-pêcheur (eau douce, de jour) : de temps en temps, un éclair bleu
+     * rase l'eau devant la barque, s'arrête en vol sur place, plonge et repart.
+     */
+    kingfisher: {
+      scale: 1.9,
+      /** Écart entre deux passages (s). */
+      every: { min: 35, max: 85 },
+      /** Où il plonge : distance à la barque (m), écart au cap de la barque (rad). */
+      diveDistance: { min: 9, max: 20 },
+      arc: 1.1,
+      /**
+       * Longueur du vol avant et après le plongeon : `approach` si l'eau le
+       * permet, jamais moins de `minApproach` (m) ; vitesse (m/s), hauteur (m).
+       */
+      approach: 20,
+      minApproach: 8,
+      speed: 9.5,
+      height: 1.3,
+      /** Vol sur place avant le plongeon, puis temps sous l'eau (s). */
+      hover: 0.9,
+      under: 0.35,
+      back: 0x1f8fd6,
+      belly: 0xe8862f,
+      /** Distance jusqu'où on entend le plouf. */
+      hearing: 30,
     },
     /** Héron : il guette dans l'eau peu profonde et s'envole vers un autre coin quand la barque approche. */
     heron: {
@@ -602,6 +721,14 @@ export const CONFIG = {
     fullMoon: { legendaryFactor: 5, variantFactor: 2 },
     /** Poisson du jour (change chaque jour réel) : il mord plus souvent, et sa première prise du jour rapporte un bonus. */
     dailyFish: { weightFactor: 2.5, reward: 3 },
+    /**
+     * Piste d'un légendaire (src/progression/trails.ts) : trois indices, dans
+     * des bouteilles à message (une par jour réel et par lieu, repêchée avec
+     * la première trouvaille du jour). Chaque indice dit où, quand ou avec
+     * quoi le chercher, et le fait mordre plus souvent : poids × la valeur
+     * pour 0, 1, 2 ou 3 indices (cumulé avec la pleine lune).
+     */
+    trail: { legendaryFactor: [1, 1.6, 2.4, 3.5] },
   },
 
   /** Vivier de la cabane : un bac où nagent les poissons gardés (src/scene/fishPen.ts). */
@@ -619,6 +746,24 @@ export const CONFIG = {
     /** Vue rapprochée sans Empty `cam_fish_pen` : recul et hauteur de la caméra (m). */
     viewDistance: 2.6,
     viewHeight: 2.3,
+  },
+
+  /**
+   * Essai d'un objet de la boutique : le ponton s'efface et la caméra tourne
+   * lentement autour de la barque (src/core/game.ts).
+   */
+  fitting: {
+    /** Durée d'un tour complet (s) ; pas de tour avec le réglage « Moins d'animations ». */
+    orbitSeconds: 30,
+    /** Angle de départ par rapport au cap de la barque (rad) : de trois quarts avant. */
+    startAngle: 0.75,
+    /**
+     * Cadrage large (coque, rames, peinture, bouchon, lanterne) et serré
+     * (tenue du pêcheur) : distance et hauteur de la caméra, hauteur du point
+     * visé (m).
+     */
+    wide: { distance: 5.8, height: 2.3, lookHeight: 0.45 },
+    close: { distance: 2.6, height: 1.45, lookHeight: 0.95 },
   },
 
   /** Présentation de la prise devant la caméra. */

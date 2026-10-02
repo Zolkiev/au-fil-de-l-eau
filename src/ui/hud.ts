@@ -88,9 +88,9 @@ export class Hud {
     this.fps.textContent = text;
   }
 
-  /** Message éphémère au centre de l'écran. */
-  toast(text: string): void {
-    const toast = createElement('hud-toast', text);
+  /** Message éphémère au centre de l'écran ; `long` laisse le temps de lire une phrase entière. */
+  toast(text: string, long = false): void {
+    const toast = createElement(long ? 'hud-toast is-long' : 'hud-toast', text);
     toast.addEventListener('animationend', () => toast.remove());
     this.toasts.append(toast);
     while (this.toasts.childElementCount > MAX_TOASTS) this.toasts.firstElementChild?.remove();
